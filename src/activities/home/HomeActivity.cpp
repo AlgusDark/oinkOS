@@ -539,7 +539,8 @@ void HomeActivity::loadTabCovers() {
     const int count = TabHome::thumbHeights(tabLayout, static_cast<int>(i), heights);
     for (int h = 0; h < count; h++) loadGridCover(recentBooks[i], heights[h], showingLoading, popupRect);
     pathChanged |= recentBooks[i].coverBmpPath != oldPath;
-    if (showingLoading) GUI.fillPopupProgress(renderer, popupRect, static_cast<int>((i + 1) * 100 / recentBooks.size()));
+    if (showingLoading)
+      GUI.fillPopupProgress(renderer, popupRect, static_cast<int>((i + 1) * 100 / recentBooks.size()));
   }
   LOG_INF("TABHOME", "thumbnails %s: %lu ms", showingLoading ? "generated" : "cached", millis() - start);
   recentsLoaded = true;
@@ -685,15 +686,14 @@ void HomeActivity::renderTabHome() {
   tabs[tabCount++] = {tr(STR_SETTINGS_TITLE), Settings2Icon};
   TabHome::drawTabBar(renderer, tabs, tabCount, onBook ? -1 : selectorIndex - bookCount);
 
-  const auto labels = mappedInput.mapLabels(recentBooks.empty() ? "" : tr(STR_RESUME),
-                                            onBook ? tr(STR_OPEN) : tr(STR_SELECT), tr(STR_DIR_LEFT),
-                                            tr(STR_DIR_RIGHT));
+  const auto labels =
+      mappedInput.mapLabels(recentBooks.empty() ? "" : tr(STR_RESUME), onBook ? tr(STR_OPEN) : tr(STR_SELECT),
+                            tr(STR_DIR_LEFT), tr(STR_DIR_RIGHT));
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
 
   const unsigned long drawMs = millis() - start;
   const unsigned long displayStart = millis();
-  renderer.displayBuffer(cleanInitialRefresh && !firstRenderDone ? HalDisplay::HALF_REFRESH
-                                                                 : HalDisplay::FAST_REFRESH);
+  renderer.displayBuffer(cleanInitialRefresh && !firstRenderDone ? HalDisplay::HALF_REFRESH : HalDisplay::FAST_REFRESH);
   const unsigned long displayMs = millis() - displayStart;
   LOG_INF("TABHOME", "render: covers %s %lu ms, draw %lu ms, display %lu ms", coverSource, coverMs, drawMs, displayMs);
   if (SETTINGS.showTimings) {

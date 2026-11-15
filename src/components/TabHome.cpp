@@ -74,8 +74,7 @@ void drawCover(const GfxRenderer& renderer, const RecentBook& book, const Rect s
     }
   }
   if (!drawn) {
-    const auto lines = renderer.wrappedText(UI_12_FONT_ID, book.title.c_str(), slot.width - 24, 3,
-                                            EpdFontFamily::BOLD);
+    const auto lines = renderer.wrappedText(UI_12_FONT_ID, book.title.c_str(), slot.width - 24, 3, EpdFontFamily::BOLD);
     int y = slot.y + 16;
     for (const auto& line : lines) {
       renderer.drawText(UI_12_FONT_ID, slot.x + 12, y, line.c_str(), true, EpdFontFamily::BOLD);
@@ -213,8 +212,8 @@ void drawBookDetails(const GfxRenderer& renderer, const Layout layout, const std
   }
   drawProgress(renderer, textX, y, std::min(200, textW), progress[0]);
 
-  if (count > 1) renderer.drawText(SMALL_FONT_ID, SIDE_PAD, TILES_LABEL_TOP, tr(STR_TAB_RECENT), true,
-                                   EpdFontFamily::BOLD);
+  if (count > 1)
+    renderer.drawText(SMALL_FONT_ID, SIDE_PAD, TILES_LABEL_TOP, tr(STR_TAB_RECENT), true, EpdFontFamily::BOLD);
   for (int i = 1; i < count && i <= RECENT_TILES; i++) {
     const Rect tile = tileSlot(renderer, i - 1);
     if (selectedBook == i) drawSelection(renderer, tile);
