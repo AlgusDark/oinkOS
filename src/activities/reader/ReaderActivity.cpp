@@ -271,7 +271,7 @@ void ReaderActivity::render(RenderLock&&) {
 bool ReaderActivity::handleForcedRefresh() {
   {
     RenderLock lock(*this);
-    pagesUntilFullRefresh = 1;
+    pagesUntilFullRefresh = 0;  // strong clean, see ReaderUtils::cleanupRefreshMode
     forcedRefreshPending = true;
   }
   requestUpdate();
