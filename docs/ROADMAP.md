@@ -1,11 +1,11 @@
 # oinkOS roadmap
 
-oinkOS is a personal CrossPoint Reader build for the Xteink X3
-(ESP32-C3 rev4, UC8253 display controller).
+oinkOS is e-reader firmware for the Xteink X3 (ESP32-C3 rev4, UC8253 display
+controller).
 
 The device is USB-locked, so there is no USB flashing or serial log. Builds go
-on over Wi-Fi: open File Transfer on the reader, upload
-`.pio/build/x3fork/firmware.bin` to `/firmware/`, then install it from
+on over Wi-Fi: run `pio run -e oinkos`, open File Transfer on the reader,
+upload `.pio/build/oinkos/firmware.bin` to `/firmware/`, then install it from
 Settings > SD Card Firmware Update. Keep an official CrossPoint image in
 `/firmware/` too, so the device can always go back to stock.
 
@@ -14,8 +14,10 @@ for a device test), **open** (not started).
 
 ## Measured on the device
 
-From the on-screen timings (branch `chore/timing-overlay`, Settings > System >
-Show Timings). Text anti-aliasing was off for the reader numbers.
+From the on-screen timings (Settings > System > Show Timings). Each line
+shows the previous screen change. Text anti-aliasing was off for the reader
+numbers, so the e-ink column is the `bw` field; with anti-aliasing on, add
+the `gray` field.
 
 | Screen | Load | Draw | E-ink refresh |
 | --- | --- | --- | --- |
@@ -42,6 +44,9 @@ Research: [x3-fast-refresh.md](research/x3-fast-refresh.md) and
 | 5 | Decide on FreeInk SDK commit c27da30 (UC8253 rollback) | open |
 | 6 | Single-scan UC8253 cleanup refresh (targets the 2.3 s page) | open |
 
+Order after the device tests: step 6, then steps 3 and 5, then the Home theme
+polish, then the list experiment.
+
 Settings that already help, no code needed: Text Anti-Aliasing off, Refresh
 Frequency at 30 or Never, and Short Power Button Click set to Refresh Screen
 for a cleanup refresh on demand.
@@ -60,11 +65,11 @@ X4 drivers (saves about 17 KB of flash and no speed).
 
 ## Home themes
 
-- Tabs + Recents and Tabs + Carousel homes: done (sketch tested on the device).
+- Tabs + Recents and Tabs + Carousel homes: done (tested on the device).
 - Refresh covers (hold Confirm on Home): built.
 - Open:
-  - The theme list on boards without PSRAM. The sketch shows every theme, and
-    Cover Grid falls back to Lyra on the X3.
+  - The theme list on boards without PSRAM. Every theme is listed, and Cover
+    Grid falls back to Lyra on the X3.
   - Remove the white space above the tab bar in Recents.
   - Center the carousel's progress percentage.
   - Document both themes and the Refresh covers gesture in `USER_GUIDE.md`.
@@ -90,15 +95,29 @@ Branch `feat/eink-list-experiment`. Its FreeInk SDK changes are a patch in
 
 ## Build size
 
-- English-only UI saves about 420 KB of flash. No RAM.
-- No Bluetooth page turner frees about 11 KB of heap and 375 KB of flash.
-- Neither is in the `x3fork` environment yet.
+- English-only UI, about 420 KB less flash and no RAM change: built.
+- No Bluetooth page turner frees about 11 KB of heap and 375 KB of flash. Not
+  applied; only worth it if free heap becomes a limit.
+
+## Updates over Wi-Fi
+
+Proposed, not built: a GitHub Action builds `oinkos` on every push to `main`
+and publishes a release, and Check for Updates reads oinkOS releases instead
+of CrossPoint's. Going back to stock would then use the SD card recovery with
+the official image.
+
+## Testing in the simulator
+
+`scripts/make_sim_sd.py SD_DIR [THEME]` fills a folder with five books with
+covers, a recents list, and optionally a Home theme. Start the simulator with
+`CROSSPOINT_SIM_SD=SD_DIR`; the simulator library reads that variable.
+
+## Origin
+
+oinkOS started from CrossPoint Reader. The `upstream` remote points at it, and
+fixes are taken from `upstream/develop` when useful.
 
 ## Branches
 
-- `main`: the oinkOS firmware.
-- `chore/timing-overlay`: on-screen render timings, the only way to measure
-  on a USB-locked device.
+- `main`: oinkOS.
 - `feat/eink-list-experiment`: the list experiment.
-- `upstream` remote: CrossPoint Reader. Merge `upstream/develop` to take
-  their fixes.

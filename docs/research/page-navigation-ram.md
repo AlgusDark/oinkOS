@@ -340,7 +340,7 @@ not break down without a device heap census (see §7).
 ## 4. Ranked opportunities
 
 Kinds: **(a)** user-visible runtime setting, **(b)** build
-configuration in the `x3fork` environment only, **(c)** source change.
+configuration in the `oinkos` environment only, **(c)** source change.
 "Upstream?" says whether the change suits the shared project, or only a
 personal X3 build.
 
