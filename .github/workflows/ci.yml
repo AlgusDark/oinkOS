@@ -56,7 +56,7 @@ jobs:
             "reedsolo>=1.5.3,<1.8" "esp-idf-size>=2.0.0" "esp-coredump>=1.14.0"
 
       - name: Cache PlatformIO packages
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.platformio
           key: pio-v2-${{ runner.os }}-${{ hashFiles('platformio.ini', 'scripts/patch_pioarduino_cache.py') }}
@@ -113,7 +113,7 @@ jobs:
             "reedsolo>=1.5.3,<1.8" "esp-idf-size>=2.0.0" "esp-coredump>=1.14.0"
 
       - name: Cache PlatformIO packages
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.platformio
           key: pio-v3-${{ runner.os }}-oinkos-${{ hashFiles('platformio.ini', 'scripts/patch_pioarduino_cache.py') }}
@@ -122,7 +122,7 @@ jobs:
       # PlatformIO's build_cache_dir. Unchanged sources reuse their objects; a
       # platformio.ini change starts a fresh cache so old objects do not pile up.
       - name: Cache compiled objects
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: .cache
           key: pio-objects-${{ runner.os }}-oinkos-${{ hashFiles('platformio.ini') }}-${{ github.sha }}
@@ -200,7 +200,7 @@ jobs:
           sudo apt-get install -y cmake ninja-build zlib1g-dev
 
       - name: Cache googletest source
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: build/test/_deps/googletest-src
           key: ${{ runner.os }}-googletest-${{ hashFiles('test/CMakeLists.txt') }}
