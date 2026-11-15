@@ -291,11 +291,6 @@ void HomeActivity::onEnter() {
 void HomeActivity::onExit() {
   Activity::onExit();
 
-  // Tab homes fill the panel with dithered covers, and the fast refresh of the
-  // next screen leaves their ghost. The reader cleans its own first page.
-  // Armed here, under the render lock, so an in-flight home paint cannot take it.
-  if (tabHome && cleanNextScreen) renderer.promoteNextRefresh(HalDisplay::CLEANUP_REFRESH);
-
   optionPopup.dismiss();
   coverGridUi.reset();
 
@@ -851,29 +846,14 @@ void HomeActivity::render(RenderLock&&) {
 
 void HomeActivity::onRecentBookSelected(const std::string& path) { activityManager.goToReader(path); }
 
-void HomeActivity::onFileBrowserOpen() {
-  cleanNextScreen = true;
-  activityManager.goToFileBrowser();
-}
+void HomeActivity::onFileBrowserOpen() { activityManager.goToFileBrowser(); }
 
-void HomeActivity::onLibraryOpen() { cleanNextScreen = activityManager.goToLibrary(); }
+void HomeActivity::onLibraryOpen() { activityManager.goToLibrary(); }
 
-void HomeActivity::onSettingsOpen() {
-  cleanNextScreen = true;
-  activityManager.goToSettings();
-}
+void HomeActivity::onSettingsOpen() { activityManager.goToSettings(); }
 
-void HomeActivity::onFileTransferOpen() {
-  cleanNextScreen = true;
-  activityManager.goToFileTransfer();
-}
+void HomeActivity::onFileTransferOpen() { activityManager.goToFileTransfer(); }
 
-void HomeActivity::onOpdsBrowserOpen() {
-  cleanNextScreen = true;
-  activityManager.goToBrowser();
-}
+void HomeActivity::onOpdsBrowserOpen() { activityManager.goToBrowser(); }
 
-void HomeActivity::onPluginsOpen() {
-  cleanNextScreen = true;
-  activityManager.goToPlugins();
-}
+void HomeActivity::onPluginsOpen() { activityManager.goToPlugins(); }

@@ -46,8 +46,6 @@ class HomeActivity final : public Activity {
   std::vector<RecentBook> recentBooks;
   // Bottom-tab home: side buttons walk the books, front Left/Right the tabs.
   bool tabHome = false;
-  // Set when a menu screen is queued; onExit then cleans that screen's first paint.
-  bool cleanNextScreen = false;
   TabHome::Layout tabLayout = TabHome::Layout::Recents;
   // Book the side buttons return to from the tabs; the carousel centers it.
   int lastBookIndex = 0;
