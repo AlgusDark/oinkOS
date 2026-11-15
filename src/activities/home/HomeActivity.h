@@ -48,6 +48,7 @@ class HomeActivity final : public Activity {
   // Carousel center the cover snapshot was taken for; -1 when there is none.
   int coverSnapshotKey = -1;
   OptionPopup optionPopup;
+  char lastTiming[48] = "";
   std::array<int8_t, TabHome::MAX_BOOKS> bookProgress{};
   const HomeMenuItem initialMenuItem;
   const bool cleanInitialRefresh;

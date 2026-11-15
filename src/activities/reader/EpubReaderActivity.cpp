@@ -1932,7 +1932,9 @@ void EpubReaderActivity::renderBook() {
   updateBookmarkFlag();
 
   {
+    const auto loadStart = millis();
     auto p = section->loadPage(section->currentPage);
+    pageLoadMs = millis() - loadStart;
     if (!p) {
       LOG_ERR("ERS", "Failed to load page from SD - clearing section cache");
       automaticPageTurnActive = false;
@@ -2161,6 +2163,7 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
   drawClippingHighlights(*page, fontId, orientedMarginTop, orientedMarginLeft);
   page->render(renderer, fontId, orientedMarginLeft, orientedMarginTop);
   renderStatusBar();
+  if (SETTINGS.showTimings) renderer.drawText(SMALL_FONT_ID, 4, 2, pageTiming, true);
   const auto tBwRender = millis();
 
   if (absoluteImageGrayscale) {
@@ -2199,6 +2202,15 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
     ReaderUtils::displayWithRefreshCycle(renderer, pagesUntilFullRefresh);
   }
   const auto tDisplay = millis();
+  struct PageTimingText {
+    char* out;
+    unsigned long load, t0, tBwRender, tDisplay;
+    ~PageTimingText() {
+      if (!SETTINGS.showTimings) return;
+      snprintf(out, PAGE_TIMING_LEN, "load %lu | draw %lu | bw %lu | gray %lu ms", load, tBwRender - t0,
+               tDisplay - tBwRender, millis() - tDisplay);
+    }
+  } timingScope{pageTiming, pageLoadMs, t0, tBwRender, tDisplay};
 
   if (tiledGrayscale) {
     constexpr int STRIP_ROWS = 80;

@@ -265,6 +265,7 @@ void HomeActivity::onEnter() {
     }
     const unsigned long progressMs = millis() - start;
     LOG_INF("TABHOME", "progress for %u books: %lu ms", static_cast<unsigned>(recentBooks.size()), progressMs);
+    if (SETTINGS.showTimings) snprintf(lastTiming, sizeof(lastTiming), "progress %lu ms", progressMs);
   }
   if (coverGridUi) {
     fillCoverGridFromLibrary();
@@ -641,6 +642,7 @@ void HomeActivity::renderTabHome() {
   renderer.clearScreen();
   GUI.drawHeader(renderer, Rect{0, metrics.topPadding, renderer.getScreenWidth(), metrics.batteryBarHeight}, nullptr,
                  nullptr, false);
+  if (SETTINGS.showTimings) renderer.drawText(SMALL_FONT_ID, 8, metrics.topPadding + 2, lastTiming, true);
 
   const Rect area = TabHome::coverArea(renderer, tabLayout);
   coverRectX = area.x;
@@ -694,6 +696,10 @@ void HomeActivity::renderTabHome() {
                                                                  : HalDisplay::FAST_REFRESH);
   const unsigned long displayMs = millis() - displayStart;
   LOG_INF("TABHOME", "render: covers %s %lu ms, draw %lu ms, display %lu ms", coverSource, coverMs, drawMs, displayMs);
+  if (SETTINGS.showTimings) {
+    snprintf(lastTiming, sizeof(lastTiming), "%s %lu | draw %lu | eink %lu ms", coverSource, coverMs, drawMs,
+             displayMs);
+  }
 
   if (!firstRenderDone) {
     firstRenderDone = true;
