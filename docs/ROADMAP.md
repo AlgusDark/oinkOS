@@ -34,10 +34,9 @@ the `gray` field.
 | Tabs + Recents, cover snapshot | 2 ms | 19 ms | 483 ms |
 | Reader page turn | 15 ms | 64 ms | 487 ms |
 | Reader, every 15th page (cleanup refresh) | 14 ms | 70 ms | 2,306 ms |
-| Reader cleanup page after step 6 | | | 1,200 ms |
 
 The e-ink refresh is about 86% of a page turn. Firmware work alone cannot make
-page turns much faster. Step 6 halved the cleanup page, with no flash.
+page turns much faster. The cleanup refresh is the one big cost left.
 
 ## Fast page refresh
 
@@ -52,10 +51,14 @@ Research: [x3-fast-refresh.md](research/x3-fast-refresh.md) and
 | 3 | Send the InkPointX driver state fixes upstream to FreeInk | open |
 | 4 | Run the display SPI bus at 20 MHz | open |
 | 5 | Decide on FreeInk SDK commit c27da30 (UC8253 rollback) | open |
-| 6 | Cleanup page without the X3 resync (2.3 s to 1.2 s) | done |
+| 6 | Cleanup page without the X3 resync | rejected |
 
-Step 6 keeps the stronger HALF refresh, with its resync, for the first page
-after opening a book and for a refresh the user asks for.
+Step 6 tried the driver's single `_half` scan, without the resync, on the
+cleanup page. On the device it took 1,200 ms instead of 2,306 ms and did not
+flash, but reader pages kept more ghosting. The same scan did not clear the
+cover ghost on the first screen after a tab home either. Both were reverted.
+A cleanup that skips the flash needs a many-page ghosting test before it
+ships.
 
 Order: steps 3 and 5, then the list experiment.
 
@@ -85,8 +88,6 @@ X4 drivers (saves about 17 KB of flash and no speed).
   - Recents has no white space above the tab bar.
   - The carousel's progress percentage is centered.
   - `USER_GUIDE.md` documents both themes and Refresh covers.
-- Leaving a tab home for a menu screen cleans that screen's first refresh, so
-  the covers leave no ghost: built.
 - Returning to the carousel from a book reads the saved cover band from the
   SD card instead of the thumbnails: built.
 - Open:
@@ -187,10 +188,9 @@ Open:
 covers, a recents list, and optionally a Home theme. Start the simulator with
 `CROSSPOINT_SIM_SD=SD_DIR`; the simulator library reads that variable.
 
-The simulator does not yet have `CLEANUP_REFRESH`, the display calls added by
-the November 2026 CrossPoint sync (`setReaderRefresh`,
-`displayRetainedGrayscaleOverlay`, `controllerIdle`), or
-`SecureHttpClient::getCombinedHeader`. Branch `oinkos/cleanup-refresh` of a
+The simulator does not yet have the display calls added by the November 2026
+CrossPoint sync (`setReaderRefresh`, `displayRetainedGrayscaleOverlay`,
+`controllerIdle`), or `SecureHttpClient::getCombinedHeader`. Branch `oinkos/cleanup-refresh` of a
 local `crosspoint-simulator` clone adds them until they land upstream.
 
 ## Origin
