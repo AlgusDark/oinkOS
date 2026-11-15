@@ -213,7 +213,8 @@ void UiListActivity::syncListViewport(UiScreen& screen, fui::ListProps& props, c
   props.toggleCheckbox = true;
   props.toggleWidth = 28;
   props.toggleHeight = 28;
-  props.partialTrailingRow = true;
+  // Scroll arrows already show more below; without them a peek row does.
+  props.partialTrailingRow = !screen.theme().listScrollArrows;
   auto& n = activeNav();
   const int prevTop = n.top;
   const bool trusted = n.trusts(listCount());

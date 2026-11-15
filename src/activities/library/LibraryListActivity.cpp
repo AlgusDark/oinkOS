@@ -892,7 +892,8 @@ void LibraryListActivity::buildRows(UiScreen& screen) {
           formatInitialHeading(initial, heading);
         item.sectionHeading = heading.c_str();
       }
-      if (!authorGrouped && !author.empty()) item.subtitle = author.c_str();
+      // Every book row keeps its second line so all rows share one height.
+      if (!authorGrouped) item.subtitle = author.empty() ? tr(STR_LIBRARY_UNKNOWN_AUTHOR) : author.c_str();
     }
 
     item.label = title.c_str();

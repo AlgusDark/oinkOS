@@ -615,7 +615,14 @@ void FileBrowserActivity::buildScreen(UiScreen& screen) {
     screen.target().fill(fui::Rect{band.x, band.y, band.width, 3}, fui::Paint::solid(fui::Color::Black));
     const int pathY =
         band.y + metrics.verticalSpacing / 2 + (band.height - metrics.verticalSpacing / 2 - pathLineHeight) / 2;
-    const int pathMaxWidth = band.width - metrics.contentSidePadding * 2;
+    int pathMaxWidth = band.width - metrics.contentSidePadding * 2;
+    // Holding Confirm opens entry actions; button devices have no other cue for it.
+    if (mode == Mode::Books && !files.empty() && !mappedInput.hasTouch()) {
+      const char* holdHint = tr(STR_HOLD_OPEN_FOR_ACTIONS);
+      const int hintWidth = renderer.getTextWidth(SMALL_FONT_ID, holdHint);
+      renderer.drawText(SMALL_FONT_ID, band.x + band.width - metrics.contentSidePadding - hintWidth, pathY, holdHint);
+      pathMaxWidth -= hintWidth + metrics.contentSidePadding;
+    }
     const char* pathStr = basepath.c_str();
     const char* pathDisplay = pathStr;
     char leftTruncBuf[256];
@@ -650,9 +657,11 @@ void FileBrowserActivity::buildScreen(UiScreen& screen) {
   // Tap opens/navigates; long-press shows entry actions (physical buttons stay in loop()).
   props.inputMask = fui::InputTouch | fui::InputLongPress;
   props.valueInset = 8;  // air between the extension and the row edge
-  // Names use up to two small-font lines; shared list layout sizes each row.
+  // One line per name keeps every row the same height, so separators and the
+  // selection land on the same pixels on every page.
   fui::TextStyle label = screen.theme().smallText;
-  label.maxLines = 2;
+  label.maxLines = 1;
+  label.explicitlySet = true;
   props.labelText = label;
 
   // The trailing value here is just the short extension: skip the balanced

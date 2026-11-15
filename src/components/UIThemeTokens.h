@@ -24,6 +24,8 @@ inline freeink::ui::ThemeTokens uiThemeTokens(const freeink::ui::GfxRendererTarg
   tokens.listSelectionStyle = static_cast<fui::SelectionStyle>(metrics.listSelectionStyle);
   tokens.listScrollWidth = static_cast<int16_t>(metrics.listScrollWidth);
   tokens.listScrollSide = static_cast<uint8_t>(metrics.listScrollSide);
+  // Button devices cannot swipe, so show where the list can still scroll.
+  tokens.listScrollArrows = !BoardConfig::hasTouch();
   // No extra scroll-track inset: the bezel is already compensated once at the
   // frame level (GfxRendererTarget::deviceContext() feeds the board's
   // viewable insets into the fui safe area, and every list band derives from

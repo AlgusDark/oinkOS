@@ -956,7 +956,7 @@ void WifiSelectionActivity::buildListScreen(UiScreen& screen) {
   props.labelText.maxLines = 2;
   props.balanceWrappedLabelWithValue = false;
   listNav.selected = static_cast<int>(selectedNetworkIndex);
-  props.partialTrailingRow = true;
+  props.partialTrailingRow = !screen.theme().listScrollArrows;
   screen.syncListViewport(listNav, props, static_cast<int>(networks.size()));
   screen.list(props);
 }

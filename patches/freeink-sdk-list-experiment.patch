@@ -1,0 +1,159 @@
+diff --git i/libs/ui/FreeInkUI/include/FreeInkApp.h w/libs/ui/FreeInkUI/include/FreeInkApp.h
+index 1c31e73..91ba97d 100644
+--- i/libs/ui/FreeInkUI/include/FreeInkApp.h
++++ w/libs/ui/FreeInkUI/include/FreeInkApp.h
+@@ -354,6 +354,8 @@ public:
+       themed.scrollIndicatorSide = theme_.listScrollSide;
+     if (themed.scrollIndicatorInset < 0)
+       themed.scrollIndicatorInset = theme_.listScrollInset;
++    if (themed.scrollIndicatorArrows == 0xFF)
++      themed.scrollIndicatorArrows = theme_.listScrollArrows ? 1 : 0;
+     // Rows inset within the band (Lyra pill); the scroll indicator stays at
+     // the band's true edge.
+     if (themed.rowInset < 0)
+diff --git i/libs/ui/FreeInkUI/include/FreeInkUICore.h w/libs/ui/FreeInkUI/include/FreeInkUICore.h
+index 2660c2f..3ed570a 100644
+--- i/libs/ui/FreeInkUI/include/FreeInkUICore.h
++++ w/libs/ui/FreeInkUI/include/FreeInkUICore.h
+@@ -541,14 +541,18 @@ struct TextStyle {
+   // Rotated text is single-line; the rect is interpreted in screen space and
+   // the text flows along the rotated axis.
+   Rotation rotation = Rotation::None;
++  // Keeps a style whose fields all equal the defaults (the single-line small
++  // slot) from being replaced by the theme's substitution.
++  bool explicitlySet = false;
+ };
+ 
+ // True when `s` is entirely default-constructed. Screen's themed substitution
+ // uses this instead of `font == 0`: FONT_SLOT_SMALL is 0, so the font alone
+ // cannot distinguish "unset" from "explicitly the small slot". Customizing any
+-// field (maxLines, align, bold, ...) marks the style as caller-owned.
++// field (maxLines, align, bold, ...) or explicitlySet marks the style as
++// caller-owned.
+ inline bool textStyleUnset(const TextStyle &s) {
+-  return s.font == 0 && s.align == TextAlign::Left && s.color == Color::Black &&
++  return !s.explicitlySet && s.font == 0 && s.align == TextAlign::Left && s.color == Color::Black &&
+          s.maxLines == 1 && !s.bold && !s.inverted &&
+          s.rotation == Rotation::None;
+ }
+@@ -670,6 +674,9 @@ struct ThemeTokens {
+   // track hugs the edge); boards whose panel sits recessed behind the bezel set
+   // this so the indicator clears the bezel and stays visible.
+   int16_t listScrollInset = 0;
++  // Up/down arrows at the ends of the scroll track, so button devices show
++  // that more rows exist without relying on the thin thumb alone.
++  bool listScrollArrows = false;
+   // Header shape tokens, forwarded by Screen::header() the same way.
+   int16_t headerSidePadding = 6;
+   uint8_t headerUnderline = 1; // bottom rule thickness; 0 = none
+diff --git i/libs/ui/FreeInkUI/include/components/lists/list.h w/libs/ui/FreeInkUI/include/components/lists/list.h
+index 9d70e91..4d43cad 100644
+--- i/libs/ui/FreeInkUI/include/components/lists/list.h
++++ w/libs/ui/FreeInkUI/include/components/lists/list.h
+@@ -137,6 +137,8 @@ struct ListProps {
+   // Inward offset of the scroll track from the band edge (for panels recessed
+   // behind a bezel). -1 = inherit the theme's listScrollInset.
+   int16_t scrollIndicatorInset = -1;
++  // 0xFF = inherit the theme's listScrollArrows; raw list() treats it as off.
++  uint8_t scrollIndicatorArrows = 0xFF;
+   bool centerSingleLine = false;
+   // Mirrors row layout for RTL languages: icon and label move to the
+   // trailing (right) edge, value/toggle move to the leading (left) edge --
+@@ -410,20 +412,56 @@ private:
+   int layoutSelected_ = 0;
+ };
+ 
++constexpr int16_t LIST_SCROLL_ARROW_WIDTH = 14;
++constexpr int16_t LIST_SCROLL_ARROW_HEIGHT = 8;
++constexpr int16_t LIST_SCROLL_ARROW_GAP = 4;
++
++// Width the scroll indicator occupies at the band edge.
++inline int16_t listScrollColumnWidth(const int16_t width, const bool arrows) {
++  return arrows && width < LIST_SCROLL_ARROW_WIDTH ? LIST_SCROLL_ARROW_WIDTH : width;
++}
++
+ inline void drawListScrollIndicator(DrawTarget &target, const Rect rect,
+                                     const uint32_t count,
+                                     const uint32_t visible,
+                                     const uint32_t top,
+                                     const int16_t width = 3,
+                                     const uint8_t side = 0,
+-                                    const int16_t inset = 0) {
++                                    const int16_t inset = 0,
++                                    const bool arrows = false) {
+   if (count <= visible || visible == 0 || width <= 0)
+     return;
+ 
+   const bool left = side == 1;
+-  const Rect track{left ? static_cast<int16_t>(rect.x + inset)
+-                        : static_cast<int16_t>(rect.right() - width - inset),
+-                   rect.y, width, rect.height};
++  const int16_t column = listScrollColumnWidth(width, arrows);
++  const int16_t columnX = left ? static_cast<int16_t>(rect.x + inset)
++                               : static_cast<int16_t>(rect.right() - column - inset);
++  Rect track{static_cast<int16_t>(columnX + (column - width) / 2), rect.y, width, rect.height};
++  if (arrows) {
++    const int16_t reserve = LIST_SCROLL_ARROW_HEIGHT + LIST_SCROLL_ARROW_GAP;
++    if (track.height <= 2 * reserve + 12)
++      return;
++    const int16_t right = static_cast<int16_t>(columnX + column - 1);
++    const int16_t mid = static_cast<int16_t>(columnX + column / 2);
++    const int16_t upBase = static_cast<int16_t>(rect.y + LIST_SCROLL_ARROW_HEIGHT - 1);
++    const int16_t downTip = static_cast<int16_t>(rect.bottom() - 1);
++    const int16_t downBase = static_cast<int16_t>(downTip - LIST_SCROLL_ARROW_HEIGHT + 1);
++    // A hollow arrow means there is nothing more in that direction.
++    const auto arrow = [&target](const Point a, const Point b, const Point c, const bool enabled) {
++      const Paint ink = Paint::solid(Color::Black);
++      if (enabled) {
++        target.triangle(a, b, c, ink);
++        return;
++      }
++      target.line(a, b, 1, ink);
++      target.line(b, c, 1, ink);
++      target.line(c, a, 1, ink);
++    };
++    arrow(Point{mid, rect.y}, Point{right, upBase}, Point{columnX, upBase}, top > 0);
++    arrow(Point{columnX, downBase}, Point{right, downBase}, Point{mid, downTip}, top + visible < count);
++    track.y = static_cast<int16_t>(track.y + reserve);
++    track.height = static_cast<int16_t>(track.height - 2 * reserve);
++  }
+   target.fill(track, Paint::dither(Color::LightGray));
+   int16_t thumbH = static_cast<int16_t>(
+       (static_cast<int32_t>(rect.height) * visible) / count);
+@@ -515,7 +553,8 @@ inline int listContentHeight(const DrawTarget& target, AssetResolver* assets, Re
+   const int inset = props.rowInset > 0 ? props.rowInset : 0;
+   int width = rect.width - 2 * inset;
+   if (props.scrollIndicator && props.scrollIndicatorWidth > 0) {
+-    const int strip = props.scrollIndicatorWidth + (props.scrollIndicatorInset > 0 ? props.scrollIndicatorInset : 0) + 2;
++    const int strip = listScrollColumnWidth(props.scrollIndicatorWidth, props.scrollIndicatorArrows == 1) +
++                      (props.scrollIndicatorInset > 0 ? props.scrollIndicatorInset : 0) + 2;
+     if (inset < strip) width -= strip - inset;
+   }
+   if (width <= 0) return rect.height;
+@@ -548,6 +587,7 @@ void list(Frame<MaxInteractions> &frame, Rect rect, const ListProps &props) {
+   const int16_t scrollW =
+       props.scrollIndicatorWidth < 0 ? 3 : props.scrollIndicatorWidth;
+   const bool scrollLeft = props.scrollIndicatorSide == 1;
++  const bool scrollArrows = props.scrollIndicatorArrows == 1;
+   const int16_t scrollInset =
+       props.scrollIndicatorInset < 0 ? 0 : props.scrollIndicatorInset;
+   const int16_t rowInset = props.rowInset < 0 ? 0 : props.rowInset;
+@@ -597,7 +637,8 @@ void list(Frame<MaxInteractions> &frame, Rect rect, const ListProps &props) {
+   if (props.scrollIndicator && reserveScrollStrip && scrollW > 0) {
+     // Rows only give up width when the row inset margin doesn't already
+     // clear the track (plus its bezel inset) plus 2px of air.
+-    const int16_t needed = static_cast<int16_t>(scrollW + scrollInset + 2);
++    const int16_t needed =
++        static_cast<int16_t>(listScrollColumnWidth(scrollW, scrollArrows) + scrollInset + 2);
+     if (rowInset < needed) {
+       stripCut = static_cast<int16_t>(needed - rowInset);
+       rowArea.width = static_cast<int16_t>(rowArea.width - stripCut);
+@@ -986,7 +1027,7 @@ void list(Frame<MaxInteractions> &frame, Rect rect, const ListProps &props) {
+   if (props.scrollIndicator && consumedIndexes > 0 &&
+       (top > 0 || consumedIndexes < props.count)) {
+     drawListScrollIndicator(frame.target(), rect, props.count, consumedIndexes, top,
+-                            scrollW, scrollLeft ? 1 : 0, scrollInset);
++                            scrollW, scrollLeft ? 1 : 0, scrollInset, scrollArrows);
+   }
+ 
+   if (props.nav) {

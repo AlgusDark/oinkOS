@@ -17,6 +17,8 @@ harness = r"""
 namespace fui = freeink::ui;
 struct UiScreen {
   int16_t height = 80;
+  fui::ThemeTokens tokens;
+  const fui::ThemeTokens& theme() const { return tokens; }
   void syncListViewport(fui::ListNav& nav, fui::ListProps& props, int count, int offset) {
     nav.syncToProps({0, 0, 200, height}, 20, 0, count, props, offset);
   }
@@ -57,6 +59,16 @@ int main() {
     activity.syncListViewport(screen, props, offset);
     assert(nav.top == 2 && props.topIndex == 2);
   }
+
+  // Scroll arrows replace the partial trailing row as the "more below" cue.
+  UiListActivity activity;
+  UiScreen screen;
+  fui::ListProps props;
+  activity.syncListViewport(screen, props);
+  assert(props.partialTrailingRow);
+  screen.tokens.listScrollArrows = true;
+  activity.syncListViewport(screen, props);
+  assert(!props.partialTrailingRow);
 }
 """
 with tempfile.TemporaryDirectory() as directory:
