@@ -1,4 +1,5 @@
 #pragma once
+#include <array>
 #include <functional>
 #include <vector>
 
@@ -6,6 +7,7 @@
 #include "RecentBooksStore.h"
 #include "activities/Activity.h"
 #include "components/CoverGridHomeUi.h"
+#include "components/TabHome.h"
 #include "util/ButtonNavigator.h"
 
 struct Rect;
@@ -37,6 +39,14 @@ class HomeActivity final : public Activity {
   int coverRectW = 0;
   int coverRectH = 0;
   std::vector<RecentBook> recentBooks;
+  // Bottom-tab home: side buttons walk the books, front Left/Right the tabs.
+  bool tabHome = false;
+  TabHome::Layout tabLayout = TabHome::Layout::Recents;
+  // Book the side buttons return to from the tabs; the carousel centers it.
+  int lastBookIndex = 0;
+  // Carousel center the cover snapshot was taken for; -1 when there is none.
+  int coverSnapshotKey = -1;
+  std::array<int8_t, TabHome::MAX_BOOKS> bookProgress{};
   const HomeMenuItem initialMenuItem;
   const bool cleanInitialRefresh;
 
@@ -82,6 +92,11 @@ class HomeActivity final : public Activity {
   void fillCoverGridFromLibrary();
   void resolveGridCoverPaths();
   void loadGridCover(RecentBook& book, int height, bool& showingLoading, Rect& popupRect);
+  void renderTabHome();
+  uint32_t carouselCacheKey(int centerBook) const;
+  bool loadCarouselCache(int centerBook);
+  void saveCarouselCache(int centerBook);
+  void loadTabCovers();
 
  public:
   explicit HomeActivity(GfxRenderer& renderer, MappedInputManager& mappedInput,

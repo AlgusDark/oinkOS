@@ -251,9 +251,11 @@ inline SettingInfo buildShortPowerButtonSetting() {
 
 inline std::vector<StrId> homeThemeValues() {
   static constexpr StrId VALUES[] = {StrId::STR_THEME_CLASSIC, StrId::STR_THEME_LYRA, StrId::STR_THEME_LYRA_EXTENDED,
-                                     StrId::STR_THEME_ROUNDEDRAFF, StrId::STR_THEME_COVER_GRID};
-  const size_t count = UITheme::supportsCoverGrid() ? std::size(VALUES) : std::size(VALUES) - 1;
-  return {VALUES, VALUES + count};
+                                     StrId::STR_THEME_ROUNDEDRAFF, StrId::STR_THEME_COVER_GRID,
+                                     StrId::STR_THEME_TAB_RECENTS, StrId::STR_THEME_TAB_CAROUSEL};
+  // Sketch: the setting stores the list index, so Cover Grid can no longer be
+  // dropped from the end on boards without PSRAM; it falls back to Lyra there.
+  return {VALUES, VALUES + std::size(VALUES)};
 }
 
 using SettingVisitor = void (*)(void* context, SettingInfo& info);

@@ -24,7 +24,13 @@
 #include "OpdsServerStore.h"
 #include "RecentBooksStore.h"
 #include "components/UITheme.h"
+#include "components/icons/blocks.h"
+#include "components/icons/folder.h"
+#include "components/icons/library.h"
+#include "components/icons/settings2.h"
+#include "components/icons/transfer.h"
 #include "fontIds.h"
+#include "util/BookProgress.h"
 
 int HomeActivity::getMenuItemCount() const {
   int count = 4;  // File Browser, Library, File transfer, Settings
@@ -241,8 +247,21 @@ void HomeActivity::onEnter() {
     coverGridUi = makeUniqueNoThrow<CoverGridHomeUi>(renderer);
     if (!coverGridUi) LOG_ERR("HOME", "OOM: cover grid UI; using standard home");
   }
-  loadRecentBooks(coverGridUi ? CoverGridHomeUi::MAX_BOOKS : metrics.homeRecentBooksCount);
+  tabHome = !coverGridUi && UITheme::tabHomeLayout(tabLayout);
+  loadRecentBooks(coverGridUi ? CoverGridHomeUi::MAX_BOOKS
+                  : tabHome   ? TabHome::bookCount(tabLayout)
+                              : metrics.homeRecentBooksCount);
   hasContinueReading = !recentBooks.empty();
+  if (tabHome) {
+    lastBookIndex = 0;
+    coverSnapshotKey = -1;
+    const unsigned long start = millis();
+    for (size_t i = 0; i < recentBooks.size(); i++) {
+      bookProgress[i] = static_cast<int8_t>(loadBookProgress(recentBooks[i].path));
+    }
+    const unsigned long progressMs = millis() - start;
+    LOG_INF("TABHOME", "progress for %u books: %lu ms", static_cast<unsigned>(recentBooks.size()), progressMs);
+  }
   if (coverGridUi) {
     fillCoverGridFromLibrary();
     resolveGridCoverPaths();
@@ -333,9 +352,9 @@ void HomeActivity::loop() {
     }
   };
 
-  // Cover grid home splits navigation by button group (see below); the flat
-  // next/previous cycle is for the classic list home only.
-  if (!coverGridUi) {
+  // Cover grid and tab homes split navigation by button group (see below); the
+  // flat next/previous cycle is for the classic list home only.
+  if (!coverGridUi && !tabHome) {
     buttonNavigator.onNext([this, menuCount] {
       selectorIndex = ButtonNavigator::nextIndex(selectorIndex, menuCount);
       requestUpdate();
@@ -364,6 +383,34 @@ void HomeActivity::loop() {
   // files missing from the SD card).
   if (mappedInput.wasReleased(MappedInputManager::Button::Back) && hasContinueReading && !recentBooks.empty()) {
     onRecentBookSelected(recentBooks[0].path);
+    return;
+  }
+
+  if (tabHome) {
+    if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
+      activateSelection();
+      return;
+    }
+    const int bookCount = static_cast<int>(recentBooks.size());
+    const int tabCount = menuCount - bookCount;
+    // The first side press from the tabs only returns to the remembered book,
+    // so the carousel never jumps.
+    const auto moveBook = [this, bookCount](const int dir) {
+      if (bookCount == 0) return;
+      selectorIndex = selectorIndex >= bookCount ? lastBookIndex : (selectorIndex + bookCount + dir) % bookCount;
+      lastBookIndex = selectorIndex;
+      requestUpdate();
+    };
+    // From a book, Right enters at the first tab and Left at the last.
+    const auto moveTab = [this, bookCount, tabCount](const int dir) {
+      const int idx = selectorIndex - bookCount;
+      selectorIndex = bookCount + (idx < 0 ? (dir > 0 ? 0 : tabCount - 1) : (idx + tabCount + dir) % tabCount);
+      requestUpdate();
+    };
+    buttonNavigator.onPressAndContinuous({MappedInputManager::Button::Up}, [&moveBook] { moveBook(-1); });
+    buttonNavigator.onPressAndContinuous({MappedInputManager::Button::Down}, [&moveBook] { moveBook(+1); });
+    buttonNavigator.onPressAndContinuous({MappedInputManager::Button::Left}, [&moveTab] { moveTab(-1); });
+    buttonNavigator.onPressAndContinuous({MappedInputManager::Button::Right}, [&moveTab] { moveTab(+1); });
     return;
   }
 
@@ -464,7 +511,169 @@ void HomeActivity::loop() {
   }
 }
 
+void HomeActivity::loadTabCovers() {
+  recentsLoading = true;
+  const unsigned long start = millis();
+  bool showingLoading = false;
+  Rect popupRect;
+  bool pathChanged = false;
+  for (size_t i = 0; i < recentBooks.size(); i++) {
+    const std::string oldPath = recentBooks[i].coverBmpPath;
+    int heights[2];
+    const int count = TabHome::thumbHeights(tabLayout, static_cast<int>(i), heights);
+    for (int h = 0; h < count; h++) loadGridCover(recentBooks[i], heights[h], showingLoading, popupRect);
+    pathChanged |= recentBooks[i].coverBmpPath != oldPath;
+    if (showingLoading) GUI.fillPopupProgress(renderer, popupRect, static_cast<int>((i + 1) * 100 / recentBooks.size()));
+  }
+  LOG_INF("TABHOME", "thumbnails %s: %lu ms", showingLoading ? "generated" : "cached", millis() - start);
+  recentsLoaded = true;
+  recentsLoading = false;
+  if (showingLoading || pathChanged) {
+    coverSnapshotKey = -1;
+    requestUpdate();
+  }
+}
+
+namespace {
+uint32_t fnv1a(uint32_t hash, const void* data, const size_t len) {
+  const auto* bytes = static_cast<const uint8_t*>(data);
+  for (size_t i = 0; i < len; i++) hash = (hash ^ bytes[i]) * 16777619u;
+  return hash;
+}
+}  // namespace
+
+// The cached band shows three covers, so it is stale when any of them, the
+// band size or the panel polarity changes.
+uint32_t HomeActivity::carouselCacheKey(const int centerBook) const {
+  const int count = static_cast<int>(recentBooks.size());
+  const int shown[3] = {(centerBook + count - 1) % count, centerBook, (centerBook + 1) % count};
+  uint32_t hash = 2166136261u;
+  for (const int i : shown) {
+    const std::string& path = recentBooks[i].coverBmpPath;
+    hash = fnv1a(hash, path.data(), path.size() + 1);
+  }
+  const int32_t extra[3] = {count, coverRectH, display.isInverted() ? 1 : 0};
+  return fnv1a(hash, extra, sizeof(extra));
+}
+
+bool HomeActivity::loadCarouselCache(const int centerBook) {
+  const std::string path = TabHome::carouselCachePath(centerBook);
+  const size_t needed = renderer.getRegionByteSize(coverRectX, coverRectY, coverRectW, coverRectH);
+  if (needed == 0 || !Storage.exists(path.c_str())) return false;
+  HalFile file;
+  if (!Storage.openFileForRead("HOME", path, file)) return false;
+  uint32_t key = 0;
+  if (file.size() != needed + sizeof(key) || file.read(&key, sizeof(key)) != sizeof(key) ||
+      key != carouselCacheKey(centerBook)) {
+    file.close();
+    return false;
+  }
+  if (!coverBuffer || coverBufferSize != needed) {
+    freeCoverBuffer();
+    coverBuffer = static_cast<uint8_t*>(malloc(needed));
+    if (!coverBuffer) {
+      file.close();
+      return false;
+    }
+    coverBufferSize = needed;
+  }
+  const bool complete = file.read(coverBuffer, needed) == static_cast<int>(needed);
+  file.close();
+  if (!complete) {
+    freeCoverBuffer();
+    return false;
+  }
+  coverBufferInverted = display.isInverted();
+  coverBufferStored = true;
+  return restoreCoverBuffer();
+}
+
+void HomeActivity::saveCarouselCache(const int centerBook) {
+  if (!coverBuffer) return;
+  HalFile file;
+  if (!Storage.openFileForWrite("HOME", TabHome::carouselCachePath(centerBook), file)) return;
+  const uint32_t key = carouselCacheKey(centerBook);
+  file.write(&key, sizeof(key));
+  file.write(coverBuffer, coverBufferSize);
+  file.close();
+}
+
+void HomeActivity::renderTabHome() {
+  const unsigned long start = millis();
+  const auto& metrics = UITheme::getInstance().getMetrics();
+  const int bookCount = static_cast<int>(recentBooks.size());
+  const bool onBook = selectorIndex < bookCount;
+
+  renderer.clearScreen();
+  GUI.drawHeader(renderer, Rect{0, metrics.topPadding, renderer.getScreenWidth(), metrics.batteryBarHeight}, nullptr,
+                 nullptr, false);
+
+  const Rect area = TabHome::coverArea(renderer, tabLayout);
+  coverRectX = area.x;
+  coverRectY = area.y;
+  coverRectW = area.width;
+  coverRectH = area.height;
+  if (coverBufferStored && coverBufferInverted != display.isInverted()) {
+    freeCoverBuffer();
+    coverSnapshotKey = -1;
+  }
+  // Only the carousel moves its covers; the recents snapshot never goes stale.
+  const int centerBook = tabLayout == TabHome::Layout::Carousel ? lastBookIndex : 0;
+  // Cache files are written only once thumbnails exist, so placeholder covers
+  // never get persisted.
+  const bool useFileCache = tabLayout == TabHome::Layout::Carousel && recentsLoaded && bookCount > 0;
+  const char* coverSource = "snap";
+  const unsigned long coverStart = millis();
+  if (coverSnapshotKey != centerBook || !restoreCoverBuffer()) {
+    coverSnapshotKey = -1;
+    if (useFileCache && loadCarouselCache(centerBook)) {
+      coverSource = "file";
+    } else {
+      coverSource = "sd";
+      TabHome::drawCovers(renderer, tabLayout, recentBooks, centerBook);
+      coverBufferStored = storeCoverBuffer();
+      if (coverBufferStored && useFileCache) saveCarouselCache(centerBook);
+    }
+    if (coverBufferStored) coverSnapshotKey = centerBook;
+  }
+  const unsigned long coverMs = millis() - coverStart;
+  TabHome::drawBookDetails(renderer, tabLayout, recentBooks, bookProgress.data(), centerBook,
+                           onBook ? selectorIndex : -1);
+
+  TabHome::Tab tabs[TabHome::MAX_TABS];
+  int tabCount = 0;
+  tabs[tabCount++] = {tr(STR_TAB_FILES), FolderIcon};
+  tabs[tabCount++] = {tr(STR_LIBRARY), LibraryIcon};
+  if (hasLibrarySlot()) tabs[tabCount++] = {hasPlugins ? tr(STR_PLUGINS) : tr(STR_TAB_OPDS), BlocksIcon};
+  tabs[tabCount++] = {tr(STR_TAB_TRANSFER), TransferIcon};
+  tabs[tabCount++] = {tr(STR_SETTINGS_TITLE), Settings2Icon};
+  TabHome::drawTabBar(renderer, tabs, tabCount, onBook ? -1 : selectorIndex - bookCount);
+
+  const auto labels = mappedInput.mapLabels(recentBooks.empty() ? "" : tr(STR_RESUME),
+                                            onBook ? tr(STR_OPEN) : tr(STR_SELECT), tr(STR_DIR_LEFT),
+                                            tr(STR_DIR_RIGHT));
+  GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
+
+  const unsigned long drawMs = millis() - start;
+  const unsigned long displayStart = millis();
+  renderer.displayBuffer(cleanInitialRefresh && !firstRenderDone ? HalDisplay::HALF_REFRESH
+                                                                 : HalDisplay::FAST_REFRESH);
+  const unsigned long displayMs = millis() - displayStart;
+  LOG_INF("TABHOME", "render: covers %s %lu ms, draw %lu ms, display %lu ms", coverSource, coverMs, drawMs, displayMs);
+
+  if (!firstRenderDone) {
+    firstRenderDone = true;
+    requestUpdate();
+  } else if (!recentsLoaded && !recentsLoading) {
+    loadTabCovers();
+  }
+}
+
 void HomeActivity::render(RenderLock&&) {
+  if (tabHome) {
+    renderTabHome();
+    return;
+  }
   const auto& metrics = UITheme::getInstance().getMetrics();
   const auto pageWidth = renderer.getScreenWidth();
   const auto pageHeight = renderer.getScreenHeight();

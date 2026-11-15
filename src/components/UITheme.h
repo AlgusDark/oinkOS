@@ -6,6 +6,7 @@
 #include <memory>
 
 #include "CrossPointSettings.h"
+#include "components/TabHome.h"
 #include "components/themes/BaseTheme.h"
 
 class CoverGridHomeUi;
@@ -43,6 +44,8 @@ class UITheme {
                                       TextVerticalAlignment verticalAlignment = TextVerticalAlignment::CENTER);
   static bool supportsCoverGrid();
   static bool hasCoverGridHome();
+  // Bottom-tab home themes; false for the list and cover-grid homes.
+  static bool tabHomeLayout(TabHome::Layout& layout);
   static void drawCoverGridHome(CoverGridHomeUi& home);
   void reload();
   void setTheme(CrossPointSettings::UI_THEME type);
