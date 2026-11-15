@@ -32,6 +32,10 @@
 #include "fontIds.h"
 #include "util/BookProgress.h"
 
+namespace {
+constexpr unsigned long REFRESH_HOLD_MS = 1000;
+}  // namespace
+
 int HomeActivity::getMenuItemCount() const {
   int count = 4;  // File Browser, Library, File transfer, Settings
   if (!recentBooks.empty()) {
@@ -278,6 +282,7 @@ void HomeActivity::onEnter() {
 void HomeActivity::onExit() {
   Activity::onExit();
 
+  optionPopup.dismiss();
   coverGridUi.reset();
 
   // Free the stored cover buffer if any
@@ -322,6 +327,8 @@ void HomeActivity::freeCoverBuffer() {
 }
 
 void HomeActivity::loop() {
+  if (optionPopup.handleInput(mappedInput, [this] { requestUpdate(); })) return;
+
   const int menuCount = getMenuItemCount();
   const auto& metrics = UITheme::getInstance().getMetrics();
 
@@ -387,6 +394,14 @@ void HomeActivity::loop() {
   }
 
   if (tabHome) {
+    if (mappedInput.wasLongPressed(MappedInputManager::Button::Confirm, REFRESH_HOLD_MS)) {
+      const char* options[] = {tr(STR_REFRESH_COVERS), tr(STR_CANCEL)};
+      optionPopup.show("", options, 2, 0, [this](const int choice) {
+        if (choice == 0) refreshCovers();
+      });
+      requestUpdate();
+      return;
+    }
     if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
       activateSelection();
       return;
@@ -534,6 +549,25 @@ void HomeActivity::loadTabCovers() {
   }
 }
 
+void HomeActivity::refreshCovers() {
+  LOG_INF("TABHOME", "refresh covers");
+  {
+    RenderLock lock(*this);
+    for (size_t i = 0; i < recentBooks.size(); i++) {
+      int heights[2];
+      const int n = TabHome::thumbHeights(tabLayout, static_cast<int>(i), heights);
+      for (int h = 0; h < n; h++) {
+        Storage.remove(UITheme::getCoverThumbPath(recentBooks[i].coverBmpPath, heights[h]).c_str());
+      }
+    }
+    TabHome::clearCarouselCache();
+    freeCoverBuffer();
+    coverSnapshotKey = -1;
+    recentsLoaded = false;
+  }
+  requestUpdate();
+}
+
 namespace {
 uint32_t fnv1a(uint32_t hash, const void* data, const size_t len) {
   const auto* bytes = static_cast<const uint8_t*>(data);
@@ -670,6 +704,7 @@ void HomeActivity::renderTabHome() {
 }
 
 void HomeActivity::render(RenderLock&&) {
+  if (optionPopup.processRender(renderer, mappedInput)) return;
   if (tabHome) {
     renderTabHome();
     return;

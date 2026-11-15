@@ -7,6 +7,7 @@
 #include "RecentBooksStore.h"
 #include "activities/Activity.h"
 #include "components/CoverGridHomeUi.h"
+#include "components/OptionPopup.h"
 #include "components/TabHome.h"
 #include "util/ButtonNavigator.h"
 
@@ -46,6 +47,7 @@ class HomeActivity final : public Activity {
   int lastBookIndex = 0;
   // Carousel center the cover snapshot was taken for; -1 when there is none.
   int coverSnapshotKey = -1;
+  OptionPopup optionPopup;
   std::array<int8_t, TabHome::MAX_BOOKS> bookProgress{};
   const HomeMenuItem initialMenuItem;
   const bool cleanInitialRefresh;
@@ -97,6 +99,7 @@ class HomeActivity final : public Activity {
   bool loadCarouselCache(int centerBook);
   void saveCarouselCache(int centerBook);
   void loadTabCovers();
+  void refreshCovers();
 
  public:
   explicit HomeActivity(GfxRenderer& renderer, MappedInputManager& mappedInput,
