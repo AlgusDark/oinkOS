@@ -2,7 +2,7 @@ name: CI (build)
 
 on:
   push:
-    branches: [develop]
+    branches: [main]
   pull_request:
 
 permissions:
@@ -16,21 +16,11 @@ jobs:
         with:
           submodules: recursive
 
-      - uses: actions/setup-python@v6
-        with:
-          python-version: '3.13'
-
-      - name: Install clang-format-21
-        run: |
-          wget https://apt.llvm.org/llvm.sh
-          chmod +x llvm.sh
-          sudo ./llvm.sh 21
-          sudo apt-get update
-          sudo apt-get install -y clang-format-21
+      - uses: cachix/install-nix-action@v31
 
       - name: Run clang-format
         run: |
-          PATH="/usr/lib/llvm-21/bin:$PATH" ./bin/clang-format-fix
+          nix develop --command ./bin/clang-format-fix
           git diff --exit-code || (echo "Please run 'bin/clang-format-fix' to fix formatting issues" && exit 1)
 
   cppcheck:
@@ -78,30 +68,10 @@ jobs:
         run: pio check --fail-on-defect low --fail-on-defect medium --fail-on-defect high
 
   build:
-    name: Build ${{ matrix.env }}
+    name: Build oinkos
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        # Short board-specific names keep pull-request artifacts easy to identify.
-        # The release workflow applies the published crosspoint-<version>-<device>.bin names.
-        include:
-          - env: default
-            asset: firmware.bin
-          - env: sticky
-            asset: firmware-sticky.bin
-          - env: x4pro
-            asset: firmware-x4pro.bin
-          - env: x4c
-            asset: firmware-x4c.bin
-          - env: papermono
-            asset: firmware-papermono.bin
-          - env: metalio_eink4
-            asset: firmware-metalio_eink4.bin
-          - env: eego_a4
-            asset: firmware-eego_a4.bin
-          - env: picco
-            asset: firmware-picco.bin
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -132,13 +102,13 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.platformio
-          key: pio-v3-${{ runner.os }}-${{ matrix.env }}-${{ hashFiles('platformio.ini', 'scripts/patch_pioarduino_cache.py') }}
-          restore-keys: pio-v3-${{ runner.os }}-${{ matrix.env }}-
+          key: pio-v3-${{ runner.os }}-oinkos-${{ hashFiles('platformio.ini', 'scripts/patch_pioarduino_cache.py') }}
+          restore-keys: pio-v3-${{ runner.os }}-oinkos-
 
       - name: Pin pioarduino core inside the platform penv
         run: |
           set -euo pipefail
-          # Envs with custom_sdkconfig (default, sticky) run a nested `pio run` from
+          # oinkos sets custom_sdkconfig, so PlatformIO runs a nested `pio run` from
           # ~/.platformio/penv. The platform bootstraps that penv with an open-ended
           # "pioarduino>=6.1.19", which now resolves to 6.2.0. That core wants
           # tool-scons 4.11.1 while platform 55.03.311 pins 4.8.1; the two keep
@@ -146,14 +116,31 @@ jobs:
           # mid-build ("No module named 'SCons.Tool.FortranCommon'"). Keep the penv
           # core on the same version as the outer core installed above.
           # See https://github.com/pioarduino/platform-espressif32/issues/529
-          pio pkg install -e ${{ matrix.env }}
+          pio pkg install -e oinkos
           uv pip install --python ~/.platformio/penv/bin/python "pioarduino==6.1.19"
           ~/.platformio/penv/bin/pio --version
 
-      - name: Build ${{ matrix.env }} firmware
+      - name: Build oinkos firmware
         run: |
           set -euo pipefail
-          pio run -e ${{ matrix.env }} | tee pio.log
+          if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            export OINKOS_BUILD="${{ github.run_number }}"
+          fi
+          pio run -e oinkos | tee pio.log
+
+      - name: Check published version
+        id: version
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          set -euo pipefail
+          version="$(sed -n 's/^CrossPoint build version: //p' pio.log | head -n1)"
+          # Check for Updates compares exactly three numbers.
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Version '$version' is not MAJOR.MINOR.PATCH" >&2
+            exit 1
+          fi
+          grep -aq "$version" .pio/build/oinkos/firmware.bin
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
 
       - name: Extract firmware stats
         run: |
@@ -163,7 +150,7 @@ jobs:
           echo "ram_line=${ram_line}" >> "$GITHUB_OUTPUT"
           echo "flash_line=${flash_line}" >> "$GITHUB_OUTPUT"
           {
-            echo "## ${{ matrix.env }} firmware build stats"
+            echo "## oinkos firmware build stats"
             if [ -n "$ram_line" ]; then echo "- ${ram_line}"; else echo "- RAM: not found"; fi
             if [ -n "$flash_line" ]; then echo "- ${flash_line}"; else echo "- Flash: not found"; fi
           } >> "$GITHUB_STEP_SUMMARY"
@@ -171,9 +158,10 @@ jobs:
       - name: Upload firmware artifact
         uses: actions/upload-artifact@v6
         with:
-          name: ${{ matrix.asset }}
-          path: .pio/build/${{ matrix.env }}/firmware.bin
+          name: oinkos.bin
+          path: .pio/build/oinkos/firmware.bin
           if-no-files-found: error
+          compression-level: 0
 
   unit-tests:
     runs-on: ubuntu-latest
@@ -201,6 +189,48 @@ jobs:
 
       - name: Run tests
         run: ctest --test-dir build/test --output-on-failure -j
+
+  release:
+    needs: [build, clang-format, cppcheck, unit-tests]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+    concurrency:
+      group: oinkos-release
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download firmware
+        uses: actions/download-artifact@v6
+        with:
+          name: oinkos.bin
+          path: dist
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.build.outputs.version }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          set -euo pipefail
+          asset="oinkos-${VERSION}-x3-x4.bin"
+          mv dist/firmware.bin "$asset"
+          subject="${COMMIT_MESSAGE:-}"
+          subject="${subject%%$'\n'*}"
+          if gh release view "$VERSION" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh release upload "$VERSION" "$asset" --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create "$VERSION" "$asset" \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" \
+              --title "oinkOS ${VERSION}" \
+              --notes "${subject} ${GITHUB_SHA}" \
+              --latest=false
+          fi
+          # Runs can finish out of order; Check for Updates reads only the release marked latest.
+          highest="$(gh release list --repo "$GITHUB_REPOSITORY" --exclude-drafts --exclude-pre-releases \
+            --limit 1000 --json tagName --jq '.[].tagName' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n1)"
+          gh release edit "$highest" --repo "$GITHUB_REPOSITORY" --latest
 
   # This job is used as the PR required actions check, allows for changes to other steps in the future without breaking
   # PR requirements.

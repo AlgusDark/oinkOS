@@ -3,11 +3,14 @@
 oinkOS is e-reader firmware for the Xteink X3 (ESP32-C3 rev4, UC8253 display
 controller).
 
-The device is USB-locked, so there is no USB flashing or serial log. Builds go
-on over Wi-Fi: run `pio run -e oinkos`, open File Transfer on the reader,
-upload `.pio/build/oinkos/firmware.bin` to `/firmware/`, then install it from
-Settings > SD Card Firmware Update. Keep an official CrossPoint image in
-`/firmware/` too, so the device can always go back to stock.
+The device is USB-locked, so there is no USB flashing or serial log. A push
+to `main` publishes a release, and Settings > Check for Updates installs it
+over Wi-Fi. A local build still goes on through File Transfer. Run
+`pio run -e oinkos`, upload `.pio/build/oinkos/firmware.bin` to `/firmware/`,
+then install it from Settings > SD Card Firmware Update. Keep an official
+CrossPoint image in `/firmware/` too. Going back to stock uses
+Settings > SD Card Firmware Update. If oinkOS does not start, hold the side Up
+button while pressing Power to open the SD firmware picker.
 
 Development tools come from `flake.nix`. With Nix and direnv installed, run
 `direnv allow` once. Entering the folder then provides `clang-format`, Python
@@ -105,10 +108,29 @@ Branch `feat/eink-list-experiment`. Its FreeInk SDK changes are a patch in
 
 ## Updates over Wi-Fi
 
-Proposed, not built: a GitHub Action builds `oinkos` on every push to `main`
-and publishes a release, and Check for Updates reads oinkOS releases instead
-of CrossPoint's. Going back to stock would then use the SD card recovery with
-the official image.
+A push to `main` builds the `oinkos` env and publishes a GitHub release. The
+tag matches the version. The version is `version` from the `[oinkos]` section
+of `platformio.ini`, then a dot, then the workflow run number. Today that is
+`0.1.N`, and `N` is `github.run_number` for `.github/workflows/ci.yml`. The
+asset name is `oinkos-` plus that version plus `-x3-x4.bin`. Settings > Check
+for Updates reads the latest oinkOS release and installs it when that version
+is newer than the one on the device.
+
+A pull request uploads `oinkos.bin` as a build artifact. It does not publish
+a release.
+
+A local build reports `0.1.0-dev-<branch>-<shortsha>`. The patch number is 0,
+so any published `0.1.N` is newer.
+
+Check for Updates no longer offers CrossPoint releases. Going back to
+CrossPoint uses the SD firmware picker described at the top.
+
+If a run is re-run, it replaces that release's file. Runs can finish out of
+order, so the release job always marks the highest version as latest.
+
+`N` comes from the run number of `ci.yml`. Renaming that workflow starts the
+count again. If that happens, bump `version` under `[oinkos]` so the next
+release stays newer than releases already published.
 
 ## Testing in the simulator
 

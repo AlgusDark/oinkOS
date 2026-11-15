@@ -1,9 +1,10 @@
 """
-PlatformIO pre-build script: inject git branch and short SHA into
-CROSSPOINT_VERSION for development environments.
+PlatformIO pre-build script: inject CROSSPOINT_VERSION for development builds.
 
-Results in a version string like:  1.1.0-dev-feat-kosync-xpath-05c6cf8
-Release environments are unaffected; they set CROSSPOINT_VERSION in the ini.
+default and sticky use <[crosspoint] version>-dev-<branch>-<short SHA>.
+oinkos uses <[oinkos] version>.<OINKOS_BUILD> when CI sets OINKOS_BUILD,
+otherwise <[oinkos] version>.0-dev-<branch>-<short SHA>.
+Other environments set CROSSPOINT_VERSION in platformio.ini.
 """
 
 import configparser
@@ -63,30 +64,38 @@ def get_git_short_sha(project_dir):
     )
 
 
-def get_base_version(project_dir):
+def get_base_version(project_dir, section):
     ini_path = os.path.join(project_dir, 'platformio.ini')
     if not os.path.isfile(ini_path):
         warn(f'platformio.ini not found at {ini_path}; base version will be "0.0.0"')
         return '0.0.0'
     config = configparser.ConfigParser()
     config.read(ini_path, encoding='utf-8')
-    if not config.has_option('crosspoint', 'version'):
-        warn('No [crosspoint] version in platformio.ini; base version will be "0.0.0"')
+    if not config.has_option(section, 'version'):
+        warn(f'No [{section}] version in platformio.ini; base version will be "0.0.0"')
         return '0.0.0'
-    return config.get('crosspoint', 'version')
+    return config.get(section, 'version')
 
 
 def inject_version(env):
-    # Only applies to development environments; release envs set the
-    # version via build_flags in platformio.ini and are unaffected.
-    if env['PIOENV'] not in ('default', 'sticky'):
+    pioenv = env['PIOENV']
+    if pioenv not in ('default', 'sticky', 'oinkos'):
         return
 
     project_dir = env['PROJECT_DIR']
-    base_version = get_base_version(project_dir)
-    branch = get_git_branch(project_dir)
-    short_sha = get_git_short_sha(project_dir)
-    version_string = f'{base_version}-dev-{branch}-{short_sha}'
+    build_number = ''
+    if pioenv == 'oinkos':
+        build_number = os.environ.get('OINKOS_BUILD', '')
+        # Patch 0 keeps a local build older than any published build.
+        base_version = f"{get_base_version(project_dir, 'oinkos')}.{build_number or 0}"
+    else:
+        base_version = get_base_version(project_dir, 'crosspoint')
+    if build_number:
+        version_string = base_version
+    else:
+        branch = get_git_branch(project_dir)
+        short_sha = get_git_short_sha(project_dir)
+        version_string = f'{base_version}-dev-{branch}-{short_sha}'
 
     def add_version(build_env, node):
         # Only these translation units depend on Git metadata. Keep library and
