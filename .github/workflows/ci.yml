@@ -119,6 +119,15 @@ jobs:
           key: pio-v3-${{ runner.os }}-oinkos-${{ hashFiles('platformio.ini', 'scripts/patch_pioarduino_cache.py') }}
           restore-keys: pio-v3-${{ runner.os }}-oinkos-
 
+      # PlatformIO's build_cache_dir. Unchanged sources reuse their objects; a
+      # platformio.ini change starts a fresh cache so old objects do not pile up.
+      - name: Cache compiled objects
+        uses: actions/cache@v4
+        with:
+          path: .cache
+          key: pio-objects-${{ runner.os }}-oinkos-${{ hashFiles('platformio.ini') }}-${{ github.sha }}
+          restore-keys: pio-objects-${{ runner.os }}-oinkos-${{ hashFiles('platformio.ini') }}-
+
       - name: Pin pioarduino core inside the platform penv
         run: |
           set -euo pipefail
@@ -167,6 +176,7 @@ jobs:
             echo "## oinkos firmware build stats"
             if [ -n "$ram_line" ]; then echo "- ${ram_line}"; else echo "- RAM: not found"; fi
             if [ -n "$flash_line" ]; then echo "- ${flash_line}"; else echo "- Flash: not found"; fi
+            echo "- Object cache: $(du -sh .cache | cut -f1)"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload firmware artifact
