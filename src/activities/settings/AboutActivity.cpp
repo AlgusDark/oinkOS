@@ -36,8 +36,8 @@ enum MenuItem {
 };
 
 // Deliberately hardcoded English, exempt from the tr() rule: support reads
-// these screenshots across every device language, so the labels must be
-// identical on every unit.
+// these screenshots across every device language, so the labels and values
+// must be identical on every unit.
 const char* const menuNames[AboutActivity::ITEM_COUNT] = {
     "Device",
     "Firmware",
@@ -156,22 +156,32 @@ void AboutActivity::onEnter() {
   snprintf(buf, sizeof(buf), "%02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
   rowValues_[ITEM_MAC] = buf;
 
-  // The used-space scan walks the whole FAT (seconds on a large card): answer the press with "Loading" first.
-  // onEnter runs without the render lock; take it for the popup.
+  // The firmware does not boot without a card, so About always has one.
+  rowValues_[ITEM_SD_SIZE] = formatBytes(Storage.sdTotalBytes());
+  rowValues_[ITEM_SD_USED] = rowValues_[ITEM_SD_FREE] = "Select to calculate";
+}
+
+void AboutActivity::activateIndex(const int index) {
+  if (index != ITEM_SD_USED && index != ITEM_SD_FREE) return;
+  // The used-space scan walks the whole FAT and cannot be interrupted (seconds on a large card), so it only runs on
+  // request.
   {
-    RenderLock lock;
+    RenderLock lock(*this);
     GUI.drawPopup(renderer, tr(STR_LOADING_POPUP));
   }
-  // The firmware does not boot without a card, so About always has one.
   const uint64_t sdTotal = Storage.sdTotalBytes();
-  rowValues_[ITEM_SD_SIZE] = formatBytes(sdTotal);
   uint64_t sdUsed = 0;
-  if (Storage.sdUsedBytes(sdUsed)) {
-    rowValues_[ITEM_SD_USED] = formatBytes(sdUsed);
-    rowValues_[ITEM_SD_FREE] = formatBytes(sdUsed <= sdTotal ? sdTotal - sdUsed : 0);
-  } else {
-    rowValues_[ITEM_SD_USED] = rowValues_[ITEM_SD_FREE] = "Error.";
+  const bool ok = Storage.sdUsedBytes(sdUsed);
+  {
+    RenderLock lock(*this);
+    if (ok) {
+      rowValues_[ITEM_SD_USED] = formatBytes(sdUsed);
+      rowValues_[ITEM_SD_FREE] = formatBytes(sdUsed <= sdTotal ? sdTotal - sdUsed : 0);
+    } else {
+      rowValues_[ITEM_SD_USED] = rowValues_[ITEM_SD_FREE] = "Error.";
+    }
   }
+  requestUpdate();
 }
 
 void AboutActivity::buildScreen(UiScreen& screen) {
