@@ -1,0 +1,28 @@
+name: Promote stable
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Published version to mark stable (for example 0.1.57)
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: oinkos-publish
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Publish stable channel
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: scripts/publish_channel.sh "$VERSION" stable

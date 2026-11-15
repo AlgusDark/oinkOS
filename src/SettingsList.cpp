@@ -213,6 +213,9 @@ void forEachBaseSetting(SettingVisitor visit, void* context) {
                            "removeReadBooksFromRecents", StrId::STR_CAT_SYSTEM));
   emit(SettingInfo::Toggle(StrId::STR_SHOW_TIMINGS, &CrossPointSettings::showTimings, "showTimings",
                            StrId::STR_CAT_SYSTEM));
+  emit(SettingInfo::Enum(StrId::STR_UPDATE_CHANNEL, &CrossPointSettings::updateChannel,
+                         {StrId::STR_STABLE, StrId::STR_BETA, StrId::STR_NIGHTLY}, "updateChannel",
+                         StrId::STR_CAT_SYSTEM));
   emit(SettingInfo::Toggle(StrId::STR_MOVE_FINISHED_TO_READ, &CrossPointSettings::moveFinishedToReadFolder,
                            "moveFinishedToReadFolder", StrId::STR_CAT_SYSTEM));
 

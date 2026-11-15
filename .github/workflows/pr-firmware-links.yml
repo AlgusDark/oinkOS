@@ -89,6 +89,11 @@ jobs:
               body += `${links.join('\n')}\n\n`;
               body += 'Extract the `.bin` from the ZIP, upload it to `/firmware/` with File Transfer on the reader, ';
               body += 'then install it from Settings > SD Card Firmware Update.';
+              // Only successful runs from this repository publish to the Beta channel.
+              if (run.conclusion === 'success' && run.head_repository?.full_name === `${owner}/${repo}`) {
+                body += ' Or set Settings > System > Update Channel to Beta and use Check for Updates. ';
+                body += 'Beta follows the newest pull request build, which may come from another pull request.';
+              }
 
               if (run.conclusion !== 'success') {
                 body += `\n\n> The firmware builds succeeded, but [another CI check finished with ${run.conclusion}](${run.html_url}).`;

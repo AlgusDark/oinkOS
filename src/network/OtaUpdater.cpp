@@ -15,20 +15,25 @@
 #include <cstring>
 #include <string>
 
+#include "CrossPointSettings.h"
 #include "FirmwareBoardTag.h"
 #include "FirmwareFlasher.h"
 
 namespace {
-constexpr char latestReleaseUrl[] = "https://api.github.com/repos/AlgusDark/oinkOS/releases/latest";
+constexpr char channelReleaseBase[] = "https://github.com/AlgusDark/oinkOS/releases/download/channels/";
+// Row width is the longest name, so a longer file name fails to compile.
+constexpr char channelFiles[][sizeof("nightly.json")] = {"stable.json", "beta.json", "nightly.json"};
+static_assert(sizeof(channelFiles) / sizeof(channelFiles[0]) == CrossPointSettings::UPDATE_CHANNEL_COUNT,
+              "one file name per update channel");
 }  // namespace
 
 OtaUpdater::OtaUpdaterError OtaUpdater::checkForUpdate() {
   LOG_DBG("OTA", "Checking for update (current: %s)", CROSSPOINT_VERSION);
 
-  // Stream the ~32KB release JSON straight into the parser as it arrives.
-  // Buffering the whole body in a std::string would add a growing allocation
+  // Stream the channel JSON straight into the parser as it arrives.
+  // Buffering the body in a std::string would add a growing allocation
   // on top of the TLS session's heap during the fetch; with -fno-exceptions an
-  // OOM there aborts. fetchUrl handles the verified-https GET, redirects, and
+  // OOM there aborts. fetchUrl handles the GET, redirects, and
   // User-Agent (see HttpDownloader).
   // Heap-allocated: the parser embeds a 2 KB JSON token buffer.
   auto releaseParserPtr = makeUniqueNoThrow<ReleaseJsonParser>();
@@ -48,7 +53,14 @@ OtaUpdater::OtaUpdaterError OtaUpdater::checkForUpdate() {
   }
   char assetName[48] = {};
   bool assetNameSet = false;
-  const bool ok = HttpDownloader::fetchUrl(latestReleaseUrl, [&](const uint8_t* data, size_t len) {
+  uint8_t channel = CrossPointSettings::UPDATE_STABLE;
+  if (SETTINGS.updateChannel < CrossPointSettings::UPDATE_CHANNEL_COUNT) {
+    channel = SETTINGS.updateChannel;
+  }
+  // Base and file name each include a NUL. The buffer keeps one of them.
+  char channelUrl[sizeof(channelReleaseBase) + sizeof(channelFiles[0]) - 1];
+  snprintf(channelUrl, sizeof(channelUrl), "%s%s", channelReleaseBase, channelFiles[channel]);
+  const bool ok = HttpDownloader::fetchUrl(channelUrl, [&](const uint8_t* data, size_t len) {
     size_t offset = 0;
     while (!assetNameSet && offset < len) {
       releaseParser.feed(reinterpret_cast<const char*>(data + offset), 1);

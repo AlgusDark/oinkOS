@@ -3,9 +3,9 @@
 oinkOS is e-reader firmware for the Xteink X3 (ESP32-C3 rev4, UC8253 display
 controller).
 
-The device is USB-locked, so there is no USB flashing or serial log. A push
-to `main` publishes a release, and Settings > Check for Updates installs it
-over Wi-Fi. A local build still goes on through File Transfer. Run
+The device is USB-locked, so there is no USB flashing or serial log. Settings >
+Check for Updates installs the channel chosen in Settings > System > Update
+Channel. A local build still goes on through File Transfer. Run
 `pio run -e oinkos`, upload `.pio/build/oinkos/firmware.bin` to `/firmware/`,
 then install it from Settings > SD Card Firmware Update. Keep an official
 CrossPoint image in `/firmware/` too. Going back to stock uses
@@ -108,29 +108,62 @@ Branch `feat/eink-list-experiment`. Its FreeInk SDK changes are a patch in
 
 ## Updates over Wi-Fi
 
-A push to `main` builds the `oinkos` env and publishes a GitHub release. The
-tag matches the version. The version is `version` from the `[oinkos]` section
-of `platformio.ini`, then a dot, then the workflow run number. Today that is
-`0.1.N`, and `N` is `github.run_number` for `.github/workflows/ci.yml`. The
-asset name is `oinkos-` plus that version plus `-x3-x4.bin`. Settings > Check
-for Updates reads the latest oinkOS release and installs it when that version
-is newer than the one on the device.
+Settings > System > Update Channel has three choices. Check for Updates reads
+the file for that choice and installs the build only when its version is
+newer. Switching channels does not install an older build. To go backward,
+use the SD card firmware picker described at the top.
 
-A pull request uploads `oinkos.bin` as a build artifact. It does not publish
-a release.
+Every push to `main`, and every pull request whose head repository is this
+one, publishes a GitHub pre-release. The tag is `0.1.N`. `N` is
+`github.run_number` for `.github/workflows/ci.yml`. Push runs and pull
+request runs share that counter, so a higher number is a newer build. The
+asset name is `oinkos-0.1.N-x3-x4.bin`. The release is a pre-release, and
+GitHub's latest flag is left unset.
 
-A local build reports `0.1.0-dev-<branch>-<shortsha>`. The patch number is 0,
-so any published `0.1.N` is newer.
+A pull request from a fork still uploads `oinkos.bin` as a build artifact.
+It does not publish a release.
+
+One rolling pre-release, tagged `channels`, holds `stable.json`, `beta.json`,
+and `nightly.json`. Each file is the release JSON the device parser reads,
+with `tag_name` before `assets`. The device downloads
+`https://github.com/AlgusDark/oinkOS/releases/download/channels/` and then
+`stable.json`, `beta.json`, or `nightly.json`.
+
+Nightly tracks every push to `main`. Beta tracks the latest build of a pull
+request from this repository. Stable has no file until the first promote.
+
+Promote a published version with this command.
+
+```
+gh workflow run promote.yml -f version=0.1.N
+```
+
+The workflow writes `stable.json` when that version is newer than the one
+already recorded, then marks the numbered release as a full release and as
+GitHub's latest. Promoting a version that is not newer fails and changes
+nothing. Only this workflow sets latest. Devices still on `0.1.2` read
+GitHub's latest release, so promoting a newer build also moves them onto the
+channel firmware.
+
+A channel file is left as it is when the recorded `tag_name` is the same
+version or a newer one. That keeps an out-of-order run from moving a channel
+backward.
+
+A local build reports `0.1.0-dev-<branch>-<shortsha>`. The patch number is
+0, so any published `0.1.N` is newer.
 
 Check for Updates no longer offers CrossPoint releases. Going back to
 CrossPoint uses the SD firmware picker described at the top.
 
-If a run is re-run, it replaces that release's file. Runs can finish out of
-order, so the release job always marks the highest version as latest.
+`N` comes from the run number of `ci.yml`. Renaming that workflow starts
+the count again. If that happens, bump `version` under `[oinkos]` so the
+next release stays newer than releases already published.
 
-`N` comes from the run number of `ci.yml`. Renaming that workflow starts the
-count again. If that happens, bump `version` under `[oinkos]` so the next
-release stays newer than releases already published.
+Old pre-releases are not pruned yet.
+
+Open:
+
+- The downloader does not verify HTTPS certificates. `HttpDownloader` calls `setInsecure()`. This is existing CrossPoint behavior and is worth fixing separately.
 
 ## Testing in the simulator
 

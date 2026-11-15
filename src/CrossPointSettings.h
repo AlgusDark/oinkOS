@@ -258,6 +258,9 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
     QUICK_RESUME_SLEEP_SCREEN_COUNT
   };
 
+  // Release channel that Check for Updates follows.
+  enum UPDATE_CHANNEL { UPDATE_STABLE = 0, UPDATE_BETA = 1, UPDATE_NIGHTLY = 2, UPDATE_CHANNEL_COUNT };
+
   // Sleep screen settings
   uint8_t sleepScreen = DARK;
   // Night mode: inverted output polarity, applied to every activity per
@@ -387,6 +390,7 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   uint8_t showHiddenFiles = 0;
   // Draws render timings on Home and reader pages.
   uint8_t showTimings = 0;
+  uint8_t updateChannel = UPDATE_STABLE;
   // Show the title and author read from inside each book rather than its
   // filename. Users can disable this to make index rebuilds skip EPUB parsing.
   uint8_t libraryUseMetadata = 1;
