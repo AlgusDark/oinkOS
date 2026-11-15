@@ -8,9 +8,10 @@ on:
 permissions:
   contents: read
 
-# Push to main, or a pull request whose head repo is this one. Fork PRs stay false.
+# Push to main, or a pull request whose head repo is this one. Fork and
+# Dependabot PRs stay false; Dependabot only changes CI, not firmware.
 env:
-  PUBLISH: "${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) }}"
+  PUBLISH: "${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') }}"
 
 jobs:
   clang-format:
