@@ -90,7 +90,8 @@ class ActivityManager {
   // openSection jumps straight into one group (End = the section list).
   void goToSettings(SettingsSection openSection = SettingsSection::End);
   void goToFileBrowser(std::string path = {});
-  void goToLibrary();
+  // False when the screen could not be allocated.
+  bool goToLibrary();
   void goToBrowser();
   void goToPlugins();
   void goToReader(std::string path, bool allowFastInitialRefresh = false);

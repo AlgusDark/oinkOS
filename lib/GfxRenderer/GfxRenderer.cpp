@@ -1763,10 +1763,34 @@ void GfxRenderer::invertScreen() const {
   }
 }
 
-HalDisplay::RefreshMode GfxRenderer::applyPromotedRefresh(const HalDisplay::RefreshMode refreshMode) const {
-  if (!promotedRefreshPending_) return refreshMode;
-  promotedRefreshPending_ = false;
+namespace {
+// How much ghosting a mode clears. CLEANUP is HALF without the X3 resync.
+int refreshStrength(const HalDisplay::RefreshMode mode) {
+  switch (mode) {
+    case HalDisplay::FULL_REFRESH:
+      return 3;
+    case HalDisplay::HALF_REFRESH:
+      return 2;
+    case HalDisplay::CLEANUP_REFRESH:
+      return 1;
+    case HalDisplay::FAST_REFRESH:
+      break;
+  }
+  return 0;
+}
+}  // namespace
+
+HalDisplay::RefreshMode GfxRenderer::promotedOr(const HalDisplay::RefreshMode refreshMode) const {
+  if (!promotedRefreshPending_ || refreshStrength(promotedRefresh_) <= refreshStrength(refreshMode)) {
+    return refreshMode;
+  }
   return promotedRefresh_;
+}
+
+HalDisplay::RefreshMode GfxRenderer::applyPromotedRefresh(const HalDisplay::RefreshMode refreshMode) const {
+  const HalDisplay::RefreshMode mode = promotedOr(refreshMode);
+  promotedRefreshPending_ = false;
+  return mode;
 }
 
 void GfxRenderer::displayBuffer(HalDisplay::RefreshMode refreshMode) const {
@@ -2424,8 +2448,7 @@ void GfxRenderer::displayGrayscaleBase(HalDisplay::RefreshMode fallback) const {
 
 bool GfxRenderer::displayGrayscaleBase(HalDisplay::GrayscaleMode mode, HalDisplay::RefreshMode fallback) const {
   absoluteGrayPlanes = false;
-  if (!display.displayGrayscaleBase(mode, promotedRefreshPending_ ? promotedRefresh_ : fallback, fadingFix))
-    return false;
+  if (!display.displayGrayscaleBase(mode, promotedOr(fallback), fadingFix)) return false;
   promotedRefreshPending_ = false;
   absoluteGrayPlanes = mode != HalDisplay::GrayscaleMode::Overlay;
   return true;

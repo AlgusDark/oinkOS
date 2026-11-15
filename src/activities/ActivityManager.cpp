@@ -301,13 +301,14 @@ void ActivityManager::goToFileBrowser(std::string path) {
   replaceActivity(std::make_unique<FileBrowserActivity>(renderer, mappedInput, std::move(path)));
 }
 
-void ActivityManager::goToLibrary() {
+bool ActivityManager::goToLibrary() {
   auto activity = makeUniqueNoThrow<LibraryListActivity>(renderer, mappedInput);
   if (!activity) {
     LOG_ERR("ACT", "OOM: library activity");
-    return;
+    return false;
   }
   replaceActivity(std::move(activity));
+  return true;
 }
 
 void ActivityManager::goToBrowser() {

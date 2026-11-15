@@ -81,7 +81,9 @@ class GfxRenderer {
   // Display entry points are const but must consume the flag.
   mutable bool promotedRefreshPending_ = false;
   mutable HalDisplay::RefreshMode promotedRefresh_ = HalDisplay::FAST_REFRESH;
-  // Swap in (and clear) the promoted mode, if one is pending.
+  // The pending promoted mode if it cleans more than refreshMode, else refreshMode.
+  HalDisplay::RefreshMode promotedOr(HalDisplay::RefreshMode refreshMode) const;
+  // promotedOr(), then clears the promotion.
   HalDisplay::RefreshMode applyPromotedRefresh(HalDisplay::RefreshMode refreshMode) const;
 
   // Tiled grayscale strip target. When active, drawPixel()/clearScreen()
@@ -235,8 +237,8 @@ class GfxRenderer {
   void tapToLogical(float nx, float ny, int& outX, int& outY) const;
   void displayBuffer(HalDisplay::RefreshMode refreshMode = HalDisplay::FAST_REFRESH) const;
   // One-shot: the next displayBuffer(), displayBufferAsync(), or
-  // displayGrayscaleBase() call uses `mode`
-  // instead of what its caller asked for, then the override clears itself.
+  // displayGrayscaleBase() call uses `mode` when it cleans more
+  // than what its caller asked for, then the override clears itself.
   // Lets a closing overlay (the control center's refresh tile) hand a
   // ghost-cleanup waveform to the repaint of whatever screen is underneath,
   // which it cannot reach directly.
