@@ -3,7 +3,8 @@
 #include <string>
 
 // Clears the reading cache for a book file if its extension is recognised
-// (EPUB, XTC, or TXT). Does nothing for other file types.
+// (EPUB, XTC, or TXT), plus the Home carousel band cache when the book is a
+// recent one. Does nothing for other file types.
 void clearBookCache(const std::string& path);
 
 // Returns true if the directory name matches a book cache entry.

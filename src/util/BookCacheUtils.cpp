@@ -5,7 +5,11 @@
 #include <Logging.h>
 #include <Xtc.h>
 
+#include <algorithm>
+
 #include "ClippingStore.h"
+#include "RecentBooksStore.h"
+#include "components/TabHome.h"
 
 bool isBookCacheDirectoryName(const char* name) {
   if (!name) {
@@ -30,6 +34,11 @@ void clearBookCache(const std::string& path) {
     return;
   }
   LOG_DBG("BookCache", "Done checking metadata cache for: %s", path.c_str());
+  // Home skips missing files when filling the carousel, so a shown book can sit anywhere in the recents list.
+  const auto& recents = RECENT_BOOKS.getBooks();
+  if (std::any_of(recents.begin(), recents.end(), [&](const RecentBook& book) { return book.path == path; })) {
+    TabHome::clearCarouselCache();
+  }
 }
 
 bool removeBookFile(const std::string& path) {

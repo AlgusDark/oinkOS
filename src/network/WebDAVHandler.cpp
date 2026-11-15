@@ -659,6 +659,7 @@ void WebDAVHandler::handleCopy(WebServer& s) {
   dstFile.close();
 
   if (copyOk) {
+    if (dstExists) clearBookCache(dstPath.c_str());
     s.send(dstExists ? 204 : 201);
   } else {
     Storage.remove(dstPath.c_str());
