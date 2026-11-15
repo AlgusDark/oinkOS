@@ -173,8 +173,18 @@ covers, a recents list, and optionally a Home theme. Start the simulator with
 
 ## Origin
 
-oinkOS started from CrossPoint Reader. The `upstream` remote points at it, and
-fixes are taken from `upstream/develop` when useful.
+oinkOS started from CrossPoint Reader. The `upstream` remote points at it.
+The shared history is kept on purpose: it credits CrossPoint's authors and lets
+each sync be a normal merge.
+
+To sync with CrossPoint:
+
+1. Run `git fetch upstream` and merge `upstream/develop` into a branch made from `main`.
+2. Resolve conflicts. A clean merge can still break the build when CrossPoint
+   renames something oinkOS uses, so build `oinkos` and run the unit tests.
+3. Run `nix develop --command ./bin/clang-format-fix`, then review the result like
+   any other firmware change.
+4. Test on the X3, then merge into `main`. CI publishes it to Nightly.
 
 ## Branches
 
