@@ -75,7 +75,12 @@ OtaUpdater::OtaUpdaterError OtaUpdater::checkForUpdate() {
     return true;
   });
   if (!ok) {
-    LOG_ERR("OTA", "Release check fetch failed");
+    // A channel with no published release has no channel file yet.
+    if (HttpDownloader::lastStatus() == 404) {
+      LOG_INF("OTA", "No release on channel %s", channelFiles[channel]);
+      return NO_UPDATE;
+    }
+    LOG_ERR("OTA", "Release check fetch failed (HTTP %d)", HttpDownloader::lastStatus());
     return HTTP_ERROR;
   }
 
