@@ -9,6 +9,10 @@ upload `.pio/build/oinkos/firmware.bin` to `/firmware/`, then install it from
 Settings > SD Card Firmware Update. Keep an official CrossPoint image in
 `/firmware/` too, so the device can always go back to stock.
 
+Development tools come from `flake.nix`. With Nix and direnv installed, run
+`direnv allow` once. Entering the folder then provides `clang-format`, Python
+and uv, and creates `.venv` with the pinned PlatformIO core on first use.
+
 Status words: **done** (tested on the device), **built** (committed, waiting
 for a device test), **open** (not started).
 

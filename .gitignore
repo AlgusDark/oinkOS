@@ -33,3 +33,7 @@ lib/EpdFont/scripts/output/
 sdkconfig.sticky
 sdkconfig.x4pro
 flake.*
+!flake.nix
+!flake.lock
+!.envrc
+.direnv/
