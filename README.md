@@ -1,3 +1,7 @@
+> **oinkOS** is a personal build of CrossPoint Reader for the Xteink X3.
+> See [docs/ROADMAP.md](docs/ROADMAP.md) for its changes and plans. All credit
+> for the base firmware goes to the CrossPoint Reader project below.
+
 # CrossPoint Reader
 
 [![Fund contributors](https://img.shields.io/badge/%F0%9F%91%91_Fund_contributors-royalty.dev-BB953A?style=for-the-badge&labelColor=1a1a1a)](https://app.royalty.dev/crosspoint-reader/crosspoint-reader)
