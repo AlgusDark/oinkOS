@@ -275,14 +275,51 @@ inline SettingInfo buildDoublePowerButtonSetting() {
       "doublePwrBtn", StrId::STR_CAT_CONTROLS);
 }
 
-inline std::vector<StrId> homeThemeValues() {
-  static constexpr StrId VALUES[] = {StrId::STR_THEME_CLASSIC,       StrId::STR_THEME_LYRA,
-                                     StrId::STR_THEME_LYRA_EXTENDED, StrId::STR_THEME_ROUNDEDRAFF,
-                                     StrId::STR_THEME_COVER_GRID,    StrId::STR_THEME_TAB_RECENTS,
-                                     StrId::STR_THEME_TAB_CAROUSEL};
-  // Sketch: the setting stores the list index, so Cover Grid can no longer be
-  // dropped from the end on boards without PSRAM; it falls back to Lyra there.
-  return {VALUES, VALUES + std::size(VALUES)};
+struct UiThemeOption {
+  StrId label;
+  uint8_t value;
+};
+
+// Cover Grid needs PSRAM, so it is not listed without it. The setting stores the
+// theme value, not the list index.
+inline std::vector<UiThemeOption> uiThemeOptions() {
+  std::vector<UiThemeOption> options = {{StrId::STR_THEME_CLASSIC, CrossPointSettings::CLASSIC},
+                                        {StrId::STR_THEME_LYRA, CrossPointSettings::LYRA},
+                                        {StrId::STR_THEME_LYRA_EXTENDED, CrossPointSettings::LYRA_3_COVERS},
+                                        {StrId::STR_THEME_ROUNDEDRAFF, CrossPointSettings::ROUNDEDRAFF}};
+  options.reserve(CrossPointSettings::UI_THEME_COUNT);
+  if (UITheme::supportsCoverGrid()) options.push_back({StrId::STR_THEME_COVER_GRID, CrossPointSettings::COVER_GRID});
+  options.push_back({StrId::STR_THEME_TAB_RECENTS, CrossPointSettings::TAB_RECENTS});
+  options.push_back({StrId::STR_THEME_TAB_CAROUSEL, CrossPointSettings::TAB_CAROUSEL});
+  return options;
+}
+
+inline std::vector<StrId> buildUiThemeValues() {
+  std::vector<StrId> values;
+  for (const auto& option : uiThemeOptions()) values.push_back(option.label);
+  return values;
+}
+
+inline uint8_t uiThemeDisplayValue() {
+  // A stored Cover Grid renders as Lyra on boards without PSRAM; show that row.
+  const uint8_t shown = SETTINGS.uiTheme == CrossPointSettings::COVER_GRID && !UITheme::supportsCoverGrid()
+                            ? static_cast<uint8_t>(CrossPointSettings::LYRA)
+                            : SETTINGS.uiTheme;
+  const auto options = uiThemeOptions();
+  for (size_t i = 0; i < options.size(); i++) {
+    if (options[i].value == shown) return static_cast<uint8_t>(i);
+  }
+  return 0;
+}
+
+inline void setUiThemeFromDisplayValue(const uint8_t displayValue) {
+  const auto options = uiThemeOptions();
+  SETTINGS.uiTheme = displayValue < options.size() ? options[displayValue].value : CrossPointSettings::LYRA;
+}
+
+inline SettingInfo buildUiThemeSetting() {
+  return SettingInfo::DynamicEnum(StrId::STR_UI_THEME, buildUiThemeValues(), uiThemeDisplayValue,
+                                  setUiThemeFromDisplayValue, CrossPointSettings::UI_THEME_KEY, StrId::STR_CAT_DISPLAY);
 }
 
 using SettingVisitor = void (*)(void* context, SettingInfo& info);

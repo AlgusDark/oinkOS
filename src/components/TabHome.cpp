@@ -39,7 +39,7 @@ constexpr int HERO_W = HERO_H * 2 / 3;
 constexpr int HERO_INSET = 12;
 constexpr int TILES_LABEL_TOP = HERO_TOP + HERO_H + 2 * HERO_INSET + 16;
 constexpr int TILE_TOP = TILES_LABEL_TOP + 24;
-constexpr int TILE_H = 180;
+constexpr int TILE_H = 200;
 constexpr int TILE_W = TILE_H * 2 / 3;
 constexpr int RECENT_TILES = 3;
 
@@ -92,14 +92,16 @@ void drawSelection(const GfxRenderer& renderer, const Rect slot) {
 }
 
 // Bar plus percentage; nothing when progress is unknown.
-void drawProgress(const GfxRenderer& renderer, const int x, const int y, const int width, const int8_t percent) {
+void drawProgress(const GfxRenderer& renderer, const int x, const int y, const int width, const int8_t percent,
+                  const bool centerText = false) {
   if (percent < 0) return;
   renderer.drawRect(x, y, width, 6);
   const int fillWidth = (width - 4) * percent / 100;
   if (fillWidth > 0) renderer.fillRect(x + 2, y + 2, fillWidth, 2);
   char text[8];
   snprintf(text, sizeof(text), "%d%%", percent);
-  renderer.drawText(SMALL_FONT_ID, x, y + 10, text, true);
+  const int textX = centerText ? x + (width - renderer.getTextWidth(SMALL_FONT_ID, text)) / 2 : x;
+  renderer.drawText(SMALL_FONT_ID, textX, y + 10, text, true);
 }
 
 void drawCentered(const GfxRenderer& renderer, const int fontId, const int y, const char* text, const int maxWidth,
@@ -188,7 +190,7 @@ void drawBookDetails(const GfxRenderer& renderer, const Layout layout, const std
     }
     drawCentered(renderer, UI_12_FONT_ID, y, book.title.c_str(), screenW - 80, EpdFontFamily::BOLD);
     y += renderer.getLineHeight(UI_12_FONT_ID) + 4;
-    drawProgress(renderer, (screenW - 200) / 2, y, 200, progress[centerBook]);
+    drawProgress(renderer, (screenW - 200) / 2, y, 200, progress[centerBook], true);
     return;
   }
 

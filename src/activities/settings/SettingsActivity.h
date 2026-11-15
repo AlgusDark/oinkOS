@@ -209,7 +209,7 @@ class SettingsActivity final : public UiListActivity {
   void rebuildRowItems();
   void toggleSelectedSetting();
   void openSleepTimeoutPicker();
-  void applyUiSettingChange(uint8_t CrossPointSettings::* valuePtr);
+  void applyUiSettingChange(const char* key);
   void syncQuickResumeTimeoutForSleepScreen(bool sleepScreenChanged, bool quickResumeTimeoutChanged);
   static std::string settingValueText(const SettingInfo& setting);
 

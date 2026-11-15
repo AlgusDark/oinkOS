@@ -110,6 +110,7 @@ void CrossPointSettings::toJson(JsonDocument& doc) const {
   doc["longPressMenuFunction"] = longPressMenuFunction;
   doc["shortPwrBtn"] = shortPwrBtn;
   doc["doublePwrBtn"] = doublePwrBtn;
+  doc[UI_THEME_KEY] = uiTheme;
 
   // Language -- managed by LanguageSelectActivity, not in SettingsList.
   // Stored as ISO code string ("EN", "DE", ...) for stability across enum reorders.
@@ -262,14 +263,15 @@ bool CrossPointSettings::fromJson(JsonVariantConst doc) {
   // Font family — uses dynamic getter/setter in SettingsList so the generic loop skips it.
   const uint8_t storedFontFamily = doc["fontFamily"] | STORED_NOTOSANS;
   fontFamily = NOTOSANS;
-  // These controls use board-specific display-index mappings and are skipped by
-  // the generic settings loop. Persisted action IDs remain stable across boards.
+  // These settings use board-specific display-index mappings and are skipped by
+  // the generic settings loop. Persisted values remain stable across boards.
   longPressMenuFunction = clamp(doc["longPressMenuFunction"] | (uint8_t)LP_MENU_DISABLED,
                                 (uint8_t)LONG_PRESS_MENU_FUNCTION_COUNT, (uint8_t)LP_MENU_DISABLED);
   shortPwrBtn = clamp(doc["shortPwrBtn"] | (uint8_t)IGNORE, (uint8_t)SHORT_PWRBTN_COUNT, (uint8_t)IGNORE);
   doublePwrBtn =
       clamp(doc["doublePwrBtn"] | (uint8_t)((doc["doubleClickPwrLight"] | (uint8_t)1) ? PWR_FRONTLIGHT : IGNORE),
             (uint8_t)SHORT_PWRBTN_COUNT, (uint8_t)PWR_FRONTLIGHT);
+  uiTheme = clamp(doc[UI_THEME_KEY] | (uint8_t)LYRA, UI_THEME_COUNT, (uint8_t)LYRA);
   if (BoardConfig::hasHomeKey() && doc["homeButtonLongPressAction"].isNull() &&
       !doc["longPressMenuFunction"].isNull()) {
     static constexpr HomeButtonAction LEGACY[] = {HomeButtonAction::Sync,       HomeButtonAction::Ignore,
