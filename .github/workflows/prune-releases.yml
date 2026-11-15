@@ -1,0 +1,42 @@
+name: Prune pre-releases
+
+on:
+  schedule:
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: oinkos-publish
+  cancel-in-progress: false
+
+jobs:
+  prune:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete old numbered pre-releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+          KEEP: 10
+        run: |
+          set -euo pipefail
+          repo=(--repo "$GITHUB_REPOSITORY")
+          # Builds a channel file points at must survive. If the channel files
+          # cannot be read, stop rather than guess.
+          channel_dir="$(mktemp -d)"
+          gh release download channels "${repo[@]}" --pattern '*.json' --dir "$channel_dir"
+          referenced="$(jq -rs 'map(.tag_name)
+            | if all(type == "string" and test("^[0-9]+\\.[0-9]+\\.[0-9]+$")) then .[]
+              else error("unreadable channel file") end' "$channel_dir"/*.json)"
+          gh release list "${repo[@]}" --limit 1000 --json tagName,isPrerelease \
+            --jq '.[] | select(.isPrerelease) | .tagName' |
+            grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | head -n -"$KEEP" |
+            while read -r tag; do
+              if grep -qxF "$tag" <<< "$referenced"; then
+                continue
+              fi
+              echo "Deleting ${tag}"
+              gh release delete "$tag" "${repo[@]}" --cleanup-tag --yes
+            done
