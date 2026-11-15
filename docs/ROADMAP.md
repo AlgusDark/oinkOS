@@ -6,8 +6,10 @@ controller).
 The device is USB-locked, so there is no USB flashing or serial log. Settings >
 Check for Updates installs the channel chosen in Settings > System > Update
 Channel. A local build still goes on through File Transfer. Run
-`pio run -e oinkos`, upload `.pio/build/oinkos/firmware.bin` to `/firmware/`,
-then install it from Settings > SD Card Firmware Update. Keep an official
+`pio run -e oinkos`, open File Transfer on the device, and run
+`scripts/upload_firmware.py [--host ADDRESS]`. It copies
+`.pio/build/oinkos/firmware.bin` to `/firmware/` and checks its size. Then
+install it from Settings > SD Card Firmware Update. Keep an official
 CrossPoint image in `/firmware/` too. Going back to stock uses
 Settings > SD Card Firmware Update. If oinkOS does not start, hold the side Up
 button while pressing Power to open the SD firmware picker.
@@ -49,10 +51,16 @@ Research: [x3-fast-refresh.md](research/x3-fast-refresh.md) and
 | 3 | Send the InkPointX driver state fixes upstream to FreeInk | open |
 | 4 | Run the display SPI bus at 20 MHz | open |
 | 5 | Decide on FreeInk SDK commit c27da30 (UC8253 rollback) | open |
-| 6 | Single-scan UC8253 cleanup refresh (targets the 2.3 s page) | open |
+| 6 | Cleanup page without the X3 resync | rejected |
 
-Order after the device tests: step 6, then steps 3 and 5, then the Home theme
-polish, then the list experiment.
+Step 6 tried the driver's single `_half` scan, without the resync, on the
+cleanup page. On the device it took 1,200 ms instead of 2,306 ms and did not
+flash, but reader pages kept more ghosting. The same scan did not clear the
+cover ghost on the first screen after a tab home either. Both were reverted.
+A cleanup that skips the flash needs a many-page ghosting test before it
+ships.
+
+Order: steps 3 and 5, then the list experiment.
 
 Settings that already help, no code needed: Text Anti-Aliasing off, Refresh
 Frequency at 30 or Never, and Short Power Button Click set to Refresh Screen
@@ -74,12 +82,19 @@ X4 drivers (saves about 17 KB of flash and no speed).
 
 - Tabs + Recents and Tabs + Carousel homes: done (tested on the device).
 - Refresh covers (hold Confirm on Home): built.
+- Polish, built:
+  - Cover Grid is not listed on boards without PSRAM. The setting stores the
+    theme, not its row, and a stored Cover Grid still shows as Lyra.
+  - Recents has no white space above the tab bar.
+  - The carousel's progress percentage is centered.
+  - `USER_GUIDE.md` documents both themes and Refresh covers.
+- Returning to the carousel from a book reads the saved cover band from the
+  SD card instead of the thumbnails: built.
 - Open:
-  - The theme list on boards without PSRAM. Every theme is listed, and Cover
-    Grid falls back to Lyra on the X3.
-  - Remove the white space above the tab bar in Recents.
-  - Center the carousel's progress percentage.
-  - Document both themes and the Refresh covers gesture in `USER_GUIDE.md`.
+  - Opening a book other than the first reorders the recents, so every saved
+    band misses and the next few carousel moves draw from the thumbnails
+    (about 500 ms each). A cache per cover would fix it.
+  - The first tab-home paint after boot runs twice.
 
 ## About screen
 
@@ -131,6 +146,8 @@ with `tag_name` before `assets`. The device downloads
 
 Nightly tracks every push to `main`. Beta tracks the latest build of a pull
 request from this repository. Stable has no file until the first promote.
+Check for Updates reports a missing channel file as no update, not a
+failure: built.
 
 Promote a published version with this command.
 
@@ -170,6 +187,11 @@ Open:
 `scripts/make_sim_sd.py SD_DIR [THEME]` fills a folder with five books with
 covers, a recents list, and optionally a Home theme. Start the simulator with
 `CROSSPOINT_SIM_SD=SD_DIR`; the simulator library reads that variable.
+
+The simulator does not yet have the display calls added by the November 2026
+CrossPoint sync (`setReaderRefresh`, `displayRetainedGrayscaleOverlay`,
+`controllerIdle`), or `SecureHttpClient::getCombinedHeader`. Branch `oinkos/cleanup-refresh` of a
+local `crosspoint-simulator` clone adds them until they land upstream.
 
 ## Origin
 

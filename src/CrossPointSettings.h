@@ -213,6 +213,8 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
     TAB_RECENTS = 5,
     TAB_CAROUSEL = 6
   };
+  static constexpr uint8_t UI_THEME_COUNT = TAB_CAROUSEL + 1;
+  static constexpr char UI_THEME_KEY[] = "uiTheme";
 
   // Image rendering in EPUB reader. IMAGES_DISPLAY_BW lays images out like
   // IMAGES_DISPLAY but draws them as a B/W dither, so image pages skip the

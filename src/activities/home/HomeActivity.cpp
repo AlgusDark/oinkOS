@@ -590,16 +590,18 @@ uint32_t fnv1a(uint32_t hash, const void* data, const size_t len) {
 }  // namespace
 
 // The cached band shows three covers, so it is stale when any of them, the
-// band size or the panel polarity changes.
+// band size, the panel polarity or the drawing code changes. A book without a
+// cover shows its title, so the title is part of the key.
 uint32_t HomeActivity::carouselCacheKey(const int centerBook) const {
   const int count = static_cast<int>(recentBooks.size());
   const int shown[3] = {(centerBook + count - 1) % count, centerBook, (centerBook + 1) % count};
   uint32_t hash = 2166136261u;
   for (const int i : shown) {
-    const std::string& path = recentBooks[i].coverBmpPath;
-    hash = fnv1a(hash, path.data(), path.size() + 1);
+    for (const std::string* s : {&recentBooks[i].path, &recentBooks[i].coverBmpPath, &recentBooks[i].title}) {
+      hash = fnv1a(hash, s->data(), s->size() + 1);
+    }
   }
-  const int32_t extra[3] = {count, coverRectH, display.isInverted() ? 1 : 0};
+  const int32_t extra[4] = {TabHome::CAROUSEL_CACHE_VERSION, count, coverRectH, display.isInverted() ? 1 : 0};
   return fnv1a(hash, extra, sizeof(extra));
 }
 
@@ -667,9 +669,9 @@ void HomeActivity::renderTabHome() {
   }
   // Only the carousel moves its covers; the recents snapshot never goes stale.
   const int centerBook = tabLayout == TabHome::Layout::Carousel ? lastBookIndex : 0;
-  // Cache files are written only once thumbnails exist, so placeholder covers
-  // never get persisted.
-  const bool useFileCache = tabLayout == TabHome::Layout::Carousel && recentsLoaded && bookCount > 0;
+  // A band's key names its covers, so it can be read before the thumbnails are
+  // checked. It is written only after, so placeholder covers never get persisted.
+  const bool useFileCache = tabLayout == TabHome::Layout::Carousel && bookCount > 0;
   const char* coverSource = "snap";
   const unsigned long coverStart = millis();
   if (coverSnapshotKey != centerBook || !restoreCoverBuffer()) {
@@ -680,7 +682,7 @@ void HomeActivity::renderTabHome() {
       coverSource = "sd";
       TabHome::drawCovers(renderer, tabLayout, recentBooks, centerBook);
       coverBufferStored = storeCoverBuffer();
-      if (coverBufferStored && useFileCache) saveCarouselCache(centerBook);
+      if (coverBufferStored && useFileCache && recentsLoaded) saveCarouselCache(centerBook);
     }
     if (coverBufferStored) coverSnapshotKey = centerBook;
   }
