@@ -172,20 +172,13 @@ inline bool isTouchMenuGesture(const GfxRenderer& renderer, const MappedInputMan
   return isTouchMenuTap(renderer, input);
 }
 
-// Refresh for a page with pagesUntilFullRefresh <= 1. Zero marks the first page
-// after entering the reader from another screen and keeps the HALF resync; set
-// the counter to 0, not 1, to request that stronger clean.
-inline HalDisplay::RefreshMode cleanupRefreshMode(const int pagesUntilFullRefresh) {
-  return pagesUntilFullRefresh <= 0 ? HalDisplay::HALF_REFRESH : HalDisplay::CLEANUP_REFRESH;
-}
-
 // One helper, blocking or deferred: the async form starts the refresh and
 // returns so the caller can overlap CPU work with the panel's refresh time.
 // Async callers must not touch the framebuffer until
 // renderer.waitRefreshComplete() and must rebuild the differential baseline
 // before the next page turn (the tiled grayscale cleanup does).
 inline void displayWithRefreshCycle(const GfxRenderer& renderer, int& pagesUntilFullRefresh, bool async = false) {
-  const auto mode = (pagesUntilFullRefresh <= 1) ? cleanupRefreshMode(pagesUntilFullRefresh) : HalDisplay::FAST_REFRESH;
+  const auto mode = (pagesUntilFullRefresh <= 1) ? HalDisplay::HALF_REFRESH : HalDisplay::FAST_REFRESH;
   if (async) {
     renderer.displayBufferAsync(mode);
   } else {
@@ -208,7 +201,7 @@ inline void displayBaseWithRefreshCycle(const GfxRenderer& renderer, int& pagesU
     displayWithRefreshCycle(renderer, pagesUntilFullRefresh);
     return;
   }
-  const auto mode = (pagesUntilFullRefresh <= 1) ? cleanupRefreshMode(pagesUntilFullRefresh) : HalDisplay::FAST_REFRESH;
+  const auto mode = (pagesUntilFullRefresh <= 1) ? HalDisplay::HALF_REFRESH : HalDisplay::FAST_REFRESH;
   renderer.displayGrayscaleBase(mode);
   if (pagesUntilFullRefresh <= 1) {
     pagesUntilFullRefresh = SETTINGS.getRefreshFrequency();

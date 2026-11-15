@@ -209,9 +209,9 @@ void XtcReaderActivity::renderPage() {
       // Combined-base panels (Paper Mono) instead defer the base so the gray
       // planes below join it in one waveform.
       if (renderer.grayscaleCapabilities().base == HalDisplay::GrayscaleBase::Combined) {
-        renderer.displayGrayscaleBase(ReaderUtils::cleanupRefreshMode(pagesUntilFullRefresh));
+        renderer.displayGrayscaleBase(HalDisplay::HALF_REFRESH);
       } else {
-        renderer.displayBuffer(ReaderUtils::cleanupRefreshMode(pagesUntilFullRefresh));
+        renderer.displayBuffer(HalDisplay::HALF_REFRESH);
         renderer.preconditionGrayscale();
       }
       pagesUntilFullRefresh = SETTINGS.getRefreshFrequency();
