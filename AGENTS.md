@@ -69,3 +69,17 @@ technical terms when clearest. Code comments must be short and useful after merg
 For every logical change that can affect shipped firmware or its build—including C/C++, build configuration, partitions, code-generation sources, translations, and release scripts—the main agent must complete [firmware-handoff](.agents/skills/firmware-handoff/SKILL.md) before declaring the work ready or making an approved local commit. That skill owns the required checks, four independent reviews, bounded follow-up, and explicit human acceptance of behavior, architecture, and maintenance ownership.
 
 Read-only inquiries, audits, and reviewers do not run implementation handoff. Pure tests, diagnostics, documentation, and host-only Python scripts use a lighter review unless they alter firmware output or its build. Hardware testing remains the human's responsibility and is required before a PR is opened.
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub Issues on `AlgusDark/oinkOS` (not upstream). See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Uses the five default triage labels (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one root `CONTEXT.md` plus `docs/adr/`. See `docs/agents/domain.md`.
