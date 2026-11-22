@@ -82,14 +82,14 @@ X4 drivers (saves about 17 KB of flash and no speed).
 
 - Tabs + Recents and Tabs + Carousel homes: done (tested on the device).
 - Refresh covers (hold Confirm on Home): built.
-- Polish, built:
+- Polish, done:
   - Cover Grid is not listed on boards without PSRAM. The setting stores the
     theme, not its row, and a stored Cover Grid still shows as Lyra.
   - Recents has no white space above the tab bar.
   - The carousel's progress percentage is centered.
   - `USER_GUIDE.md` documents both themes and Refresh covers.
 - Returning to the carousel from a book reads the saved cover band from the
-  SD card instead of the thumbnails: built.
+  SD card instead of the thumbnails: done.
 - Open:
   - Opening a book other than the first reorders the recents, so every saved
     band misses and the next few carousel moves draw from the thumbnails
@@ -147,7 +147,7 @@ with `tag_name` before `assets`. The device downloads
 Nightly tracks every push to `main`. Beta tracks the latest build of a pull
 request from this repository. Stable has no file until the first promote.
 Check for Updates reports a missing channel file as no update, not a
-failure: built.
+failure: done.
 
 Promote a published version with this command.
 
