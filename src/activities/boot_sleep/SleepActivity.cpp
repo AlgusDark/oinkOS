@@ -739,7 +739,11 @@ void SleepActivity::onEnter() {
 
   // Every mode below replaces the whole screen. One clean straight to the new
   // image leaves the old screen visible, so clean to white first (BLANK is that clean).
-  if (SETTINGS.sleepScreen != CrossPointSettings::SLEEP_SCREEN_MODE::BLANK) {
+  // Not on the UC8253 X3: its clean is a ~2.3 s full resync, and its sleep paints
+  // already drive every pixel (full resync for B/W, four-gray bank for gray).
+  // The UC8279 X3 keeps the clean until its gray path is ghost-tested.
+  if (SETTINGS.sleepScreen != CrossPointSettings::SLEEP_SCREEN_MODE::BLANK &&
+      BoardConfig::ACTIVE.board != BoardConfig::Board::XteinkX3) {
     renderer.clearScreen();
     renderer.displayBuffer(kSleepClean);
   }
@@ -823,7 +827,7 @@ void SleepActivity::renderCustomSleepScreen() const {
   renderDefaultSleepScreen();
 }
 
-// Sleep screens paint with kSleepClean (after the white clean in onEnter): HALF, not
+// Sleep screens paint with kSleepClean (after the white clean in onEnter, except X3): HALF, not
 // the multi-flash GC waveform (0xF7) that FULL_REFRESH selects (#2471's blinking
 // complaint), except on Metalio.
 void SleepActivity::renderDefaultSleepScreen() const {
@@ -887,7 +891,7 @@ void SleepActivity::renderBitmapSleepScreen(const Bitmap& bitmap, const bool pre
     return;
   }
   if (absolute) {
-    // Full-screen modes already cleaned to white in onEnter; Cover + Transparent
+    // Full-screen modes already cleaned to white in onEnter (except X3); Cover + Transparent
     // skips that clean, so its plain-cover fallback cleans here.
     if (preserveBackground || SETTINGS.sleepScreen == CrossPointSettings::SLEEP_SCREEN_MODE::COVER_TRANSPARENT) {
       cleanBeforeAbsoluteGray(renderer);
@@ -931,8 +935,14 @@ void SleepActivity::renderBitmapSleepScreen(const Bitmap& bitmap, const bool pre
     if (ready)
       renderer.displayGrayBuffer();
     else
-      LOG_ERR("SLP", "Incomplete grayscale image; keeping the current display");
+      LOG_ERR("SLP", "Incomplete grayscale image");
     renderer.setRenderMode(GfxRenderer::BW);
+    // Direct gray has not touched the panel yet, and on X3 no white clean ran
+    // first, so the old screen would stay up.
+    if (!ready && absolute && !preserveBackground) {
+      renderer.clearScreen();
+      renderer.displayBuffer(kSleepClean);
+    }
   }
 }
 

@@ -52,6 +52,7 @@ Research: [x3-fast-refresh.md](research/x3-fast-refresh.md) and
 | 4 | Run the display SPI bus at 20 MHz | open |
 | 5 | Decide on FreeInk SDK commit c27da30 (UC8253 rollback) | open |
 | 6 | Cleanup page without the X3 resync | rejected |
+| 7 | Sleep image without the extra white clean on the UC8253 X3 | built, needs device test |
 
 Step 6 tried the driver's single `_half` scan, without the resync, on the
 cleanup page. On the device it took 1,200 ms instead of 2,306 ms and did not
@@ -59,6 +60,14 @@ flash, but reader pages kept more ghosting. The same scan did not clear the
 cover ghost on the first screen after a tab home either. Both were reverted.
 A cleanup that skips the flash needs a many-page ghosting test before it
 ships.
+
+Step 7 undoes, on the X3 only, the white clean that CrossPoint #4362 added
+before every sleep screen. On the X3 that clean is the same full resync as the
+reader cleanup page (about 2.3 s, not measured on the sleep screen). The sleep
+image still drives every pixel: black-and-white images use the full resync and
+gray covers use the four-gray waveform. The gray waveform clears less than the
+white clean, so the test is a night-mode page and an anti-aliased page going to
+a Book cover sleep screen.
 
 Order: steps 3 and 5, then the list experiment.
 
