@@ -16,6 +16,13 @@ void HalDisplay::begin(bool seamless) {
   // Set X3-specific panel mode before initializing.
   if (gpio.deviceIsX3()) {
     einkDisplay.setDisplayX3();
+    // The SDK runs every Xteink panel at 10 MHz. FreeInk PR #220 found the
+    // UC8253 X3 fine at 16 MHz (80 MHz / 5) and 20 MHz gives bit errors.
+    // Must follow setDisplayX3(), which resets ACTIVE, and precede begin(),
+    // which latches the clock. Drop once the pinned SDK sets 16 MHz itself.
+    if (BoardConfig::ACTIVE.board == BoardConfig::Board::XteinkX3) {
+      BoardConfig::ACTIVE.displaySpiHz = 16000000;
+    }
   }
 
   einkDisplay.begin();

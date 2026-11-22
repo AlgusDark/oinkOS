@@ -49,7 +49,7 @@ Research: [x3-fast-refresh.md](research/x3-fast-refresh.md) and
 | 1 | Clear carousel covers when a book changes | built |
 | 2 | Measure page turns | done (table above) |
 | 3 | Send the InkPointX driver state fixes upstream to FreeInk | open |
-| 4 | Run the display SPI bus at 20 MHz | open |
+| 4 | Run the UC8253 display SPI bus at 16 MHz (20 MHz gives bit errors, FreeInk PR #220) | built, needs device test |
 | 5 | Decide on FreeInk SDK commit c27da30 (UC8253 rollback) | open |
 | 6 | Cleanup page without the X3 resync | rejected |
 
