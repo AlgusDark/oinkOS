@@ -34,6 +34,8 @@ void drawBookDetails(const GfxRenderer& renderer, Layout layout, const std::vect
                      const int8_t* progress, int centerBook, int selectedBook);
 void drawTabBar(const GfxRenderer& renderer, const Tab* tabs, int count, int selectedTab);
 
+// Bump when drawCovers changes for the carousel, so old bands are not shown.
+constexpr int32_t CAROUSEL_CACHE_VERSION = 2;
 std::string carouselCachePath(int centerBook);
 // The band spans three books, so any book cache clear drops every slot.
 void clearCarouselCache();

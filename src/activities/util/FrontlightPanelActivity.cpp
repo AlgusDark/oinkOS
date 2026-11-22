@@ -104,6 +104,8 @@ void FrontlightPanelActivity::persistLightSettings() {
 }
 
 void FrontlightPanelActivity::onExit() {
+  // Armed under the render lock, so an in-flight panel paint cannot take it.
+  if (cleanScreenUnderneath) renderer.promoteNextRefresh(HalDisplay::FULL_REFRESH);
   persistLightSettings();
   Activity::onExit();
 }
@@ -157,7 +159,7 @@ void FrontlightPanelActivity::runTile(const int idx) {
       // Refreshing with the panel still up would clean a frame the user is
       // about to dismiss anyway: drop the panel first and let the repaint of
       // the screen underneath carry the clean waveform instead.
-      renderer.promoteNextRefresh(HalDisplay::FULL_REFRESH);
+      cleanScreenUnderneath = true;
       close();
       break;
     case 2:  // Cycle the reading orientation

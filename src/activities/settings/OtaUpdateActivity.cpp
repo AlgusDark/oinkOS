@@ -27,10 +27,10 @@ void OtaUpdateActivity::onWifiSelectionComplete(const bool success) {
   requestUpdateAndWait();
 
   const auto res = updater.checkForUpdate();
-  // NO_UPDATE here means the release carries no firmware asset for this board
-  // (expected until per-board assets are published) — not a failure.
+  // NO_UPDATE here means the channel has no release yet, or its release has no
+  // firmware asset for this board. Neither is a failure.
   if (res == OtaUpdater::NO_UPDATE) {
-    LOG_DBG("OTA", "No firmware asset for this board in latest release");
+    LOG_DBG("OTA", "No update on this channel");
     {
       RenderLock lock(*this);
       state = NO_UPDATE;

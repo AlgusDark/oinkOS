@@ -111,6 +111,16 @@ Upon turning the device on for the first time, you will be placed on the **[Home
 
 The Home screen is the main entry point to the firmware. From here you can navigate to **[Reading Mode](#4-reading-mode)** with the most recently read book, **[Browse Files](#33-browse-files-screen)**, the **[Library](#34-library-screen)**, **[File Transfer](#35-file-transfer-screen)**, or **[Settings](#36-settings)**.
 
+The **Tabs + Recents** and **Tabs + Carousel** themes (see **[UI Theme](#361-display)**) show your recent books as covers above a row of tabs:
+
+- **Side Up** / **Side Down**: move between books.
+- **Left** / **Right**: move between tabs.
+- **Confirm**: open the selected book or tab.
+- **Back**: resume the most recently read book.
+- Hold **Confirm** for about one second, then choose **Refresh covers**: rebuild the cover images. Use it when a cover is missing, wrong, or out of date.
+
+The **Cover Grid** theme uses the same buttons, without **Refresh covers**.
+
 ### 3.2 Reading Mode
 
 See [Reading Mode](#4-reading-mode) below for more information.
@@ -257,6 +267,9 @@ Settings are grouped into **System**, **Display**, **Reader**, **Controls**, **L
   - "Lyra" - The new theme for Crosspoint featuring rounded elements and menu icons
   - "Lyra Extended" - Lyra, but displays 3 books instead of 1 on the **[Home Screen](#31-home-screen)**
   - "RoundedRaff" - A rounded theme with additional visual styling
+  - "Cover Grid" - A grid of recent book covers on the **[Home Screen](#31-home-screen)**. Only on devices with extra memory (PSRAM); it is not listed on the Xteink X3 or X4. If Cover Grid was already selected on such a device, Lyra is used instead
+  - "Tabs + Recents" - The current book in a large card, three recent books below it, and tabs at the bottom of the **[Home Screen](#31-home-screen)**
+  - "Tabs + Carousel" - Recent books in a carousel with one large cover, and tabs at the bottom of the **[Home Screen](#31-home-screen)**
 
 - **Sunlight Fading Fix**: Configure whether to enable a software-fix for the issue where white X4 models may fade when used in direct sunlight:
   
