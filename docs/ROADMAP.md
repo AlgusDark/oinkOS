@@ -71,7 +71,13 @@ Smaller source changes from the research:
 - Cache the display probe result, so waking skips at least 110 ms of fixed
   delays. Open.
 - Save reading progress less often than every page turn. Exit and sleep must
-  save first. Open.
+  save first. Done: a new chapter saves at once, other turns wait up to 15
+  seconds, and exit and sleep always save. A power loss can lose up to 15
+  seconds of turns within one chapter.
+- Confirm a new firmware image only after its first screen is drawn or the
+  device sleeps on purpose, so a bootloader with rollback can return to the
+  old image after a crash. Done. Whether the X3 bootloader rolls back is not
+  known.
 
 Not worth doing on the X3: keeping the next page as a bitmap in RAM (about
 52 KB, more than the free heap while reading), caching page bitmaps on the SD
@@ -118,6 +124,8 @@ Branch `feat/eink-list-experiment`. Its FreeInk SDK changes are a patch in
 ## Build size
 
 - English-only UI, about 420 KB less flash and no RAM change: built.
+- No RGB LED driver or FreeRTOS timer task on C3 builds, about 8.5 KB more
+  free heap at boot and 21 KB less flash: done.
 - No Bluetooth page turner frees about 11 KB of heap and 375 KB of flash. Not
   applied; only worth it if free heap becomes a limit.
 
