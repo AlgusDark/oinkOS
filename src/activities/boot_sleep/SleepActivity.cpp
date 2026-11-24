@@ -827,7 +827,7 @@ void SleepActivity::renderCustomSleepScreen() const {
   renderDefaultSleepScreen();
 }
 
-// Sleep screens paint with kSleepClean (after the white clean in onEnter, except X3): HALF, not
+// Sleep screens paint with kSleepClean (after the white clean in onEnter, except on the UC8253 X3): HALF, not
 // the multi-flash GC waveform (0xF7) that FULL_REFRESH selects (#2471's blinking
 // complaint), except on Metalio.
 void SleepActivity::renderDefaultSleepScreen() const {
@@ -863,8 +863,13 @@ void SleepActivity::renderBitmapSleepScreen(const Bitmap& bitmap, const bool pre
   const bool hasGreyscale = (bitmap.hasGreyscale() || (preserveBackground && overlayGrayCover)) &&
                             (preserveBackground || SETTINGS.sleepScreenCoverFilter ==
                                                        CrossPointSettings::SLEEP_SCREEN_COVER_FILTER::NO_FILTER);
+  const auto grayCaps = renderer.grayscaleCapabilities(sleepGrayscaleMode(renderer));
+  const bool absolute = hasGreyscale && grayCaps.supported();
+  // A combined base is built from the gray planes alone, so the B/W frame would never reach the panel.
+  const bool bwFrameUnused = absolute && grayCaps.base == HalDisplay::GrayscaleBase::Combined && !preserveBackground &&
+                             overlayCover != &bitmap;
 
-  if (!renderer.drawBitmap(bitmap, x, y, pageWidth, pageHeight, cropX, cropY, preserveBackground)) {
+  if (!bwFrameUnused && !renderer.drawBitmap(bitmap, x, y, pageWidth, pageHeight, cropX, cropY, preserveBackground)) {
     renderer.displayBuffer(kSleepClean);
     return;
   }
@@ -876,7 +881,7 @@ void SleepActivity::renderBitmapSleepScreen(const Bitmap& bitmap, const bool pre
 
   // Cover + Transparent: the B/W cover is the overlay's background; the overlay renderers redraw its gray planes.
   if (overlayCover == &bitmap) {
-    if (hasGreyscale && renderer.grayscaleCapabilities(sleepGrayscaleMode(renderer)).supported()) {
+    if (absolute) {
       overlayGrayCover = &bitmap;
     }
     renderTransparentCustomSleepScreen();
@@ -884,7 +889,6 @@ void SleepActivity::renderBitmapSleepScreen(const Bitmap& bitmap, const bool pre
     return;
   }
 
-  const bool absolute = hasGreyscale && renderer.grayscaleCapabilities(sleepGrayscaleMode(renderer)).supported();
   const BwFrameKeeper bwFrame(renderer, hasGreyscale && !absolute);
   if (!bwFrame.ready()) {
     renderer.displayBuffer(kSleepClean);
@@ -937,9 +941,8 @@ void SleepActivity::renderBitmapSleepScreen(const Bitmap& bitmap, const bool pre
     else
       LOG_ERR("SLP", "Incomplete grayscale image");
     renderer.setRenderMode(GfxRenderer::BW);
-    // Direct gray has not touched the panel yet, and on X3 no white clean ran
-    // first, so the old screen would stay up.
-    if (!ready && absolute && !preserveBackground) {
+    // A combined base has not touched the panel yet, so the old screen would stay up.
+    if (!ready && bwFrameUnused) {
       renderer.clearScreen();
       renderer.displayBuffer(kSleepClean);
     }

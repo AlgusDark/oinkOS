@@ -52,7 +52,7 @@ Research: [x3-fast-refresh.md](research/x3-fast-refresh.md) and
 | 4 | Run the display SPI bus at 20 MHz | open |
 | 5 | Decide on FreeInk SDK commit c27da30 (UC8253 rollback) | open |
 | 6 | Cleanup page without the X3 resync | rejected |
-| 7 | Sleep image without the extra white clean on the UC8253 X3 | built, needs device test |
+| 7 | Sleep image without the extra white clean on the UC8253 X3 | done (night-mode page tested) |
 
 Step 6 tried the driver's single `_half` scan, without the resync, on the
 cleanup page. On the device it took 1,200 ms instead of 2,306 ms and did not
@@ -67,7 +67,17 @@ reader cleanup page (about 2.3 s, not measured on the sleep screen). The sleep
 image still drives every pixel: black-and-white images use the full resync and
 gray covers use the four-gray waveform. The gray waveform clears less than the
 white clean, so the test is a night-mode page and an anti-aliased page going to
-a Book cover sleep screen.
+a Book cover sleep screen. On the device a night-mode page left no ghost: the
+"Entering sleep" popup already repaints the page in normal colors. The UC8279
+X3 keeps the clean until its gray path is ghost-tested.
+
+Sleep also no longer draws the B/W cover when the gray mode builds its base
+from the gray planes (X3 direct gray, and X4 absolute gray, not tested on an
+X4). That frame never reached the panel. On the X3 it cost 750 to 910 ms of
+each sleep, measured with a temporary timing build. With both changes a gray
+cover sleep takes 3.5 to 3.8 s. The two gray planes take 930 to 1,060 ms each:
+about 300 to 430 ms reading the cover from the SD card, the rest plotting
+pixels.
 
 Order: steps 3 and 5, then the list experiment.
 
