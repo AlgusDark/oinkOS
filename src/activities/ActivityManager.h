@@ -71,7 +71,8 @@ class ActivityManager {
   // Written by the main loop under RenderLock; the render task captures it under that lock.
   uint32_t screenVisit = 0;
   // The screen visit whose frame the render task painted last.
-  std::atomic<uint32_t> paintedVisit{0};
+  // A screen entered with no current activity keeps visit 0, so 0 cannot mean "not painted yet".
+  std::atomic<uint32_t> paintedVisit{~uint32_t{0}};
 
  public:
   explicit ActivityManager(GfxRenderer& renderer, MappedInputManager& mappedInput);
@@ -117,6 +118,12 @@ class ActivityManager {
   bool remoteClick(RemoteButton button);
   // Home is in front and has painted a frame of its own (not one left from the screen before).
   bool isForegroundHomeShown() const;
+  // Render task has finished the current activity's frame. The boot splash paints
+  // from onEnter and does not count; neither does a replace that is still pending.
+  bool hasPaintedCurrentVisit() const {
+    return pendingAction == PendingAction::None && currentActivity &&
+           paintedVisit.load(std::memory_order_acquire) == screenVisit;
+  }
   uint32_t visit() const { return screenVisit; }
   bool remoteTurn(bool forward, bool chapter);
   // A remote button mapped to the reader menu (true) or to a new clipping (false).

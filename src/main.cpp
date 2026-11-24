@@ -23,6 +23,7 @@
 #include <XteinkDetect.h>
 #include <builtinFonts/all.h>
 #include <esp_heap_caps.h>
+#include <esp_ota_ops.h>
 #include <esp_wifi.h>
 #include <time.h>
 
@@ -51,6 +52,30 @@
 #include "util/ScreenshotUtil.h"
 #include "util/SlideSwitch.h"
 #include "util/Timezones.h"
+
+// Keep a new image pending through initArduino(). A rollback-capable bootloader
+// aborts it if the device reboots before confirmRunningImage() runs.
+extern "C" bool verifyRollbackLater() { return true; }
+
+// Call once the boot is healthy: the first screen painted, or a deliberate sleep.
+// One attempt per boot.
+static void confirmRunningImage() {
+  static bool attempted = false;
+  if (attempted) return;
+  attempted = true;
+
+  const esp_partition_t* running = esp_ota_get_running_partition();
+  esp_ota_img_states_t state;
+  if (!running || esp_ota_get_state_partition(running, &state) != ESP_OK) return;
+  if (state != ESP_OTA_IMG_PENDING_VERIFY) return;
+
+  const esp_err_t err = esp_ota_mark_app_valid_cancel_rollback();
+  if (err == ESP_OK) {
+    LOG_INF("MAIN", "Running image confirmed");
+  } else {
+    LOG_ERR("MAIN", "Running image confirm failed: %s", esp_err_to_name(err));
+  }
+}
 
 #if CROSSPOINT_VECTOR_FONTS
 // Rendering (incl. FreeType TTF rasterization) runs on the Arduino loop task.
@@ -454,6 +479,7 @@ static bool holdSleepWhileUsbPowered() {
 // Enter deep sleep mode
 void enterDeepSleep(bool fromTimeout = false) {
   HalPowerManager::Lock powerLock;  // Ensure we are at normal CPU frequency for sleep preparation
+  confirmRunningImage();
   APP_STATE.lastSleepFromReader = activityManager.isReaderActivity();
 
   // Sleep may end in a power-off (battery death, latch); persist the clock
@@ -696,6 +722,7 @@ void setup() {
       if (!wakeHoldVerified && SETTINGS.shortPwrBtn != CrossPointSettings::SHORT_PWRBTN::SLEEP &&
           !(FREEINK_DEVICE_PICCO && gpio.isUsbConnected())) {
         LOG_DBG("MAIN", "Power-button wake not held through verification, sleeping");
+        confirmRunningImage();
         Storage.prepareForDeepSleep();
         powerManager.startDeepSleep(gpio);
       }
@@ -715,6 +742,7 @@ void setup() {
       // the device in a USB-replug boot loop (or sleep right after a flash).
       break;
 #else
+      confirmRunningImage();
       Storage.prepareForDeepSleep();
       powerManager.startDeepSleep(gpio);
       break;
@@ -835,6 +863,8 @@ void setup() {
 }
 
 void loop() {
+  if (activityManager.hasPaintedCurrentVisit()) confirmRunningImage();
+
   static unsigned long maxLoopDuration = 0;
   const unsigned long loopStartTime = millis();
   static unsigned long lastMemPrint = 0;

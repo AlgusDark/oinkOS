@@ -426,8 +426,7 @@ bool ActivityManager::remoteClick(const RemoteButton button) {
 }
 
 bool ActivityManager::isForegroundHomeShown() const {
-  return pendingAction == PendingAction::None && currentActivity && currentActivity->name == "Home" &&
-         paintedVisit.load(std::memory_order_acquire) == screenVisit;
+  return hasPaintedCurrentVisit() && currentActivity->name == "Home";
 }
 
 bool ActivityManager::remoteShortcut(const bool readerMenu) {
