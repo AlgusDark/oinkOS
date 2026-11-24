@@ -14,6 +14,7 @@
 #include <algorithm>
 
 #include "../Memory/Memory.h"
+#include "BitmapRowPlot.h"
 #include "FontCacheManager.h"
 #include "GlyphBitmap.h"
 
@@ -1481,6 +1482,36 @@ bool GfxRenderer::drawBitmap(const Bitmap& bitmap, const int x, const int y, con
   auto* outputRow = rowScratch.get();
   auto* rowBytes = rowScratch.get() + outputRowSize;
 
+  // Strip mode keeps the per-pixel band check in drawPixel. Unscaled full-frame
+  // rows walk bits from one rotateCoordinates step.
+  const bool fastRows = !isScaled && !_stripActive;
+  int stepX = 0;
+  int stepY = 0;
+  bitmapRow::Plane plane = bitmapRow::Plane::Bw;
+  int screenWidth = 0;
+  if (fastRows) {
+    int originPhyX = 0;
+    int originPhyY = 0;
+    int nextPhyX = 0;
+    int nextPhyY = 0;
+    rotateCoordinates(orientation, 0, 0, &originPhyX, &originPhyY, panelWidth, panelHeight);
+    rotateCoordinates(orientation, 1, 0, &nextPhyX, &nextPhyY, panelWidth, panelHeight);
+    stepX = nextPhyX - originPhyX;
+    stepY = nextPhyY - originPhyY;
+    screenWidth = getScreenWidth();
+    switch (renderMode) {
+      case BW:
+        plane = bitmapRow::Plane::Bw;
+        break;
+      case GRAYSCALE_MSB:
+        plane = bitmapRow::Plane::GrayMsb;
+        break;
+      case GRAYSCALE_LSB:
+        plane = bitmapRow::Plane::GrayLsb;
+        break;
+    }
+  }
+
   for (int bmpY = 0; bmpY < (bitmap.getHeight() - cropPixY); bmpY++) {
     // The BMP's (0, 0) is the bottom-left corner (if the height is positive, top-left if negative).
     // Screen's (0, 0) is the top-left corner.
@@ -1505,6 +1536,20 @@ bool GfxRenderer::drawBitmap(const Bitmap& bitmap, const int x, const int y, con
 
     if (bmpY < cropPixY) {
       // Skip the row if it's outside the crop area
+      continue;
+    }
+
+    if (fastRows) {
+      const bitmapRow::Span span = bitmapRow::clipSpan(bitmap.getWidth(), cropPixX, x, screenY, screenWidth, clipLeft_,
+                                                       clipTop_, clipRight_, clipBottom_);
+      if (span.count > 0) {
+        const int screenX0 = span.bmpX0 - cropPixX + x;
+        int phyX = 0;
+        int phyY = 0;
+        rotateCoordinates(orientation, screenX0, screenY, &phyX, &phyY, panelWidth, panelHeight);
+        bitmapRow::plot(frameBuffer, panelWidthBytes, phyX, phyY, stepX, stepY, outputRow, span.bmpX0, span.count,
+                        plane, absoluteGrayPlanes, whiteAsTransparent);
+      }
       continue;
     }
 

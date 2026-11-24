@@ -1,0 +1,3 @@
+add_executable(BitmapRowPlotTest BitmapRowPlotTest.cpp)
+target_link_libraries(BitmapRowPlotTest PRIVATE crosspoint_test_common GTest::gtest_main)
+gtest_discover_tests(BitmapRowPlotTest)
