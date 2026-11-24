@@ -744,6 +744,7 @@ void EpubReaderActivity::loop() {
     return;
   }
 
+  flushPendingProgressIfIdle();
   rememberBookOnceRendered();
 
   // The radio stopped for a chapter build: once the render task has let go of the lock, that page
@@ -1333,7 +1334,9 @@ void EpubReaderActivity::onReaderMenuConfirm(EpubReaderMenuActivity::MenuAction 
           section.reset();
           epub->clearCache();
           epub->setupCacheDir();
-          if (!saveProgress(backupSpine, backupPage, backupPageCount)) {
+          progressSave.forgetSaved();
+          progressSave.note({backupSpine, backupPage, backupPageCount});
+          if (!flushProgress(true)) {
             LOG_ERR("ERS", "Failed to save progress before cache clear");
           }
         }
@@ -1416,7 +1419,8 @@ bool EpubReaderActivity::launchKOReaderSync() {
   std::string localChapterName = (tocIdx >= 0) ? epub->getTocItem(tocIdx).title : "";
   const std::string savedEpubPath = epub->getPath();
 
-  if (!saveProgress(currentSpineIndex, currentPage, totalPages)) {
+  progressSave.note({currentSpineIndex, currentPage, totalPages});
+  if (!flushProgress(true)) {
     LOG_ERR("KOSync", "Aborting sync because current progress could not be saved");
     pendingSyncSaveError = true;
     requestUpdate();
@@ -2018,14 +2022,7 @@ void EpubReaderActivity::renderBook() {
     markPageRendered();
   }
 
-  if (currentSpineIndex != lastSavedSpineIndex || section->currentPage != lastSavedPage ||
-      section->pageCount != lastSavedPageCount) {
-    if (saveProgress(currentSpineIndex, section->currentPage, section->estimatedTotalPages())) {
-      lastSavedSpineIndex = currentSpineIndex;
-      lastSavedPage = section->currentPage;
-      lastSavedPageCount = section->estimatedTotalPages();
-    }
-  }
+  flushProgress(progressSave.note({currentSpineIndex, section->currentPage, section->estimatedTotalPages()}));
 
   showPendingSyncSaveError();
 
@@ -2116,6 +2113,48 @@ bool EpubReaderActivity::applyDeferredReposition() {
 void EpubReaderActivity::clearDeferredReposition() {
   cachedChapterTotalPageCount = 0;
   cachedVisibleTextOffset.reset();
+}
+
+void EpubReaderActivity::onExit() {
+  flushLiveProgress();
+  ReaderActivity::onExit();
+}
+
+void EpubReaderActivity::prepareForSleep() {
+  flushLiveProgress();
+  ReaderActivity::prepareForSleep();
+}
+
+void EpubReaderActivity::flushLiveProgress() {
+  // Callers already hold RenderLock. Taking it again deadlocks.
+  // A page turn moves section->currentPage before the next render notes it. Without a
+  // section (chapter turn, jump, cache clear) the target page is not known yet, so
+  // only the last rendered position is written.
+  if (section && epub && currentSpineIndex < epub->getSpineItemsCount()) {
+    progressSave.note({currentSpineIndex, section->currentPage, section->estimatedTotalPages()});
+  }
+  flushProgress(true);
+}
+
+void EpubReaderActivity::flushPendingProgressIfIdle() {
+  if (!progressSave.hasPending || pendingManualTurn != 0) return;
+  // The render task holds this mutex for the whole page, including its own
+  // progress write. Try, so the loop never blocks on it or writes beside it.
+  RenderLock lock(RenderLock::Mode::Try);
+  if (!lock.ownsLock()) return;
+  flushProgress(false);
+}
+
+bool EpubReaderActivity::flushProgress(const bool immediate) {
+  const uint32_t now = static_cast<uint32_t>(millis());
+  if (!epub || !progressSave.hasPending || (!immediate && !progressSave.due(now))) return true;
+  const ProgressPosition& position = progressSave.pending;
+  if (!saveProgress(position.spineIndex, position.page, position.pageCount)) {
+    progressSave.attempted(now);
+    return false;
+  }
+  progressSave.written(now);
+  return true;
 }
 
 bool EpubReaderActivity::saveProgress(int spineIndex, int currentPage, int pageCount) {

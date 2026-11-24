@@ -16,6 +16,7 @@
 #include "EpubReaderMenuActivity.h"
 #include "LinkNoteTitle.h"
 #include "ProgressMapper.h"
+#include "ProgressSaveGate.h"
 #include "ReaderActivity.h"
 #include "ReaderToolbarUi.h"
 #include "components/OptionPopup.h"
@@ -130,9 +131,11 @@ class EpubReaderActivity final : public ReaderActivity {
   uint16_t buildViewportHeight = 0;
   bool partialRebuildStartFailed = false;
 
-  int lastSavedSpineIndex = -1;
-  int lastSavedPage = -1;
-  int lastSavedPageCount = -1;
+  ProgressSaveGate progressSave;
+  // False only when a write was attempted and failed.
+  bool flushProgress(bool immediate);
+  void flushPendingProgressIfIdle();
+  void flushLiveProgress();
 
   static constexpr int BUILD_PAGES_PER_CHUNK = 8;
   static constexpr int BACKGROUND_BUILD_PAGES_PER_TICK = 2;
@@ -261,6 +264,8 @@ class EpubReaderActivity final : public ReaderActivity {
       : ReaderActivity("EpubReader", renderer, mappedInput, std::move(bookPath), allowFastInitialRefresh) {}
   ~EpubReaderActivity() override;
 
+  void onExit() override;
+  void prepareForSleep() override;
   void loop() override;
   void render(RenderLock&& lock) override;
 
