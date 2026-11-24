@@ -95,6 +95,9 @@ void ReaderActivity::rememberBookOnceRendered() {
 }
 
 void ReaderActivity::onExit() {
+  // The first page can finish after loop() last ran; remember the book here so a
+  // fast Back or sleep still records it.
+  rememberBookOnceRendered();
   Activity::onExit();
 
   // Keep rebuildable font buffers from pinning the heap between reading sessions.
@@ -126,7 +129,10 @@ void ReaderActivity::onExit() {
   endOfBookOptionsReady.store(false, std::memory_order_release);
 }
 
-void ReaderActivity::prepareForSleep() { flushReaderSession(); }
+void ReaderActivity::prepareForSleep() {
+  rememberBookOnceRendered();
+  flushReaderSession();
+}
 
 void ReaderActivity::flushReaderSession() {
   if (!readerSession.isEmitWorthy() || !pluginevents::anySubscriber(pluginevents::Event::ReaderSession)) {
