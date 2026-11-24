@@ -739,7 +739,11 @@ void SleepActivity::onEnter() {
 
   // Every mode below replaces the whole screen. One clean straight to the new
   // image leaves the old screen visible, so clean to white first (BLANK is that clean).
-  if (SETTINGS.sleepScreen != CrossPointSettings::SLEEP_SCREEN_MODE::BLANK) {
+  // Not on the UC8253 X3: its clean is a ~2.3 s full resync, and its sleep paints
+  // already drive every pixel (full resync for B/W, four-gray bank for gray).
+  // The UC8279 X3 keeps the clean until its gray path is ghost-tested.
+  if (SETTINGS.sleepScreen != CrossPointSettings::SLEEP_SCREEN_MODE::BLANK &&
+      BoardConfig::ACTIVE.board != BoardConfig::Board::XteinkX3) {
     renderer.clearScreen();
     renderer.displayBuffer(kSleepClean);
   }
@@ -823,7 +827,7 @@ void SleepActivity::renderCustomSleepScreen() const {
   renderDefaultSleepScreen();
 }
 
-// Sleep screens paint with kSleepClean (after the white clean in onEnter): HALF, not
+// Sleep screens paint with kSleepClean (after the white clean in onEnter, except on the UC8253 X3): HALF, not
 // the multi-flash GC waveform (0xF7) that FULL_REFRESH selects (#2471's blinking
 // complaint), except on Metalio.
 void SleepActivity::renderDefaultSleepScreen() const {
@@ -859,8 +863,13 @@ void SleepActivity::renderBitmapSleepScreen(const Bitmap& bitmap, const bool pre
   const bool hasGreyscale = (bitmap.hasGreyscale() || (preserveBackground && overlayGrayCover)) &&
                             (preserveBackground || SETTINGS.sleepScreenCoverFilter ==
                                                        CrossPointSettings::SLEEP_SCREEN_COVER_FILTER::NO_FILTER);
+  const auto grayCaps = renderer.grayscaleCapabilities(sleepGrayscaleMode(renderer));
+  const bool absolute = hasGreyscale && grayCaps.supported();
+  // A combined base is built from the gray planes alone, so the B/W frame would never reach the panel.
+  const bool bwFrameUnused = absolute && grayCaps.base == HalDisplay::GrayscaleBase::Combined && !preserveBackground &&
+                             overlayCover != &bitmap;
 
-  if (!renderer.drawBitmap(bitmap, x, y, pageWidth, pageHeight, cropX, cropY, preserveBackground)) {
+  if (!bwFrameUnused && !renderer.drawBitmap(bitmap, x, y, pageWidth, pageHeight, cropX, cropY, preserveBackground)) {
     renderer.displayBuffer(kSleepClean);
     return;
   }
@@ -872,7 +881,7 @@ void SleepActivity::renderBitmapSleepScreen(const Bitmap& bitmap, const bool pre
 
   // Cover + Transparent: the B/W cover is the overlay's background; the overlay renderers redraw its gray planes.
   if (overlayCover == &bitmap) {
-    if (hasGreyscale && renderer.grayscaleCapabilities(sleepGrayscaleMode(renderer)).supported()) {
+    if (absolute) {
       overlayGrayCover = &bitmap;
     }
     renderTransparentCustomSleepScreen();
@@ -880,14 +889,13 @@ void SleepActivity::renderBitmapSleepScreen(const Bitmap& bitmap, const bool pre
     return;
   }
 
-  const bool absolute = hasGreyscale && renderer.grayscaleCapabilities(sleepGrayscaleMode(renderer)).supported();
   const BwFrameKeeper bwFrame(renderer, hasGreyscale && !absolute);
   if (!bwFrame.ready()) {
     renderer.displayBuffer(kSleepClean);
     return;
   }
   if (absolute) {
-    // Full-screen modes already cleaned to white in onEnter; Cover + Transparent
+    // Full-screen modes already cleaned to white in onEnter (except X3); Cover + Transparent
     // skips that clean, so its plain-cover fallback cleans here.
     if (preserveBackground || SETTINGS.sleepScreen == CrossPointSettings::SLEEP_SCREEN_MODE::COVER_TRANSPARENT) {
       cleanBeforeAbsoluteGray(renderer);
@@ -931,8 +939,13 @@ void SleepActivity::renderBitmapSleepScreen(const Bitmap& bitmap, const bool pre
     if (ready)
       renderer.displayGrayBuffer();
     else
-      LOG_ERR("SLP", "Incomplete grayscale image; keeping the current display");
+      LOG_ERR("SLP", "Incomplete grayscale image");
     renderer.setRenderMode(GfxRenderer::BW);
+    // A combined base has not touched the panel yet, so the old screen would stay up.
+    if (!ready && bwFrameUnused) {
+      renderer.clearScreen();
+      renderer.displayBuffer(kSleepClean);
+    }
   }
 }
 
